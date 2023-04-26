@@ -1,0 +1,13 @@
+[package]
+name = "shaderbg"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tao = { version = "0.19.0", features = ["tray"] }
+env_logger = "0.10.0"
+image = "0.24.6"
+wgpu = "0.15.0"
+imgui = "0.10"
+imgui-wgpu = "0.22.0"
+pollster = "0.3.0"
