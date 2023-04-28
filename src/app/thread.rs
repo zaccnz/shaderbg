@@ -6,17 +6,24 @@ use tao::{
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
 
-use crate::app::{AppEvent, AppState, Tray, Window};
+use crate::app::{AppEvent, AppEventSender, AppState, Background, Tray, Window};
 
 #[derive(Debug)]
 pub enum WindowEvent {
     OpenWindow,
     StartTray,
     CloseTray,
+    CreateBackgroundWindow,
+    CloseBackgroundWindow,
+}
+
+enum WindowEventTarget {
+    None,
+    Window,
+    Background,
 }
 
 pub struct WindowThread {
-    was_window_open: bool,
     window: Option<Window>,
     tray: Option<Tray>,
 }
@@ -37,7 +44,6 @@ impl WindowThread {
 
         (
             WindowThread {
-                was_window_open: false,
                 window: None,
                 tray: None,
             },
@@ -76,7 +82,15 @@ impl WindowThread {
         }
     }
 
-    pub fn run(mut self, event_loop: EventLoop<WindowEvent>, app_state: AppState) {
+    pub fn run(
+        mut self,
+        event_loop: EventLoop<WindowEvent>,
+        app_state: AppState,
+        handle: std::thread::JoinHandle<()>,
+    ) {
+        let mut handle = Some(handle);
+        let mut background_window_id = None;
+
         event_loop.run(move |event, event_loop, control_flow| {
             *control_flow = ControlFlow::Wait;
             match event {
@@ -108,6 +122,8 @@ impl WindowThread {
                 Event::LoopDestroyed => {
                     println!("Loop Destroyed");
                     self.tray.take();
+                    app_state.send_event(AppEvent::EventLoopQuit).unwrap();
+                    handle.take().unwrap().join().unwrap();
                 }
                 Event::UserEvent(window_event) => {
                     match window_event {
@@ -132,22 +148,70 @@ impl WindowThread {
                                 .send_event(AppEvent::TrayStateChange(false))
                                 .unwrap();
                         }
+                        WindowEvent::CreateBackgroundWindow => {
+                            let background = Background::new(
+                                event_loop,
+                                app_state.clone_for(AppEventSender::Background),
+                            );
+
+                            background_window_id = Some(background.window.id());
+
+                            app_state
+                                .send_event(AppEvent::BackgroundCreated(background))
+                                .unwrap();
+                        }
+                        WindowEvent::CloseBackgroundWindow => {
+                            background_window_id.take();
+                        }
                     }
                     println!("{:?}", window_event);
                 }
                 Event::WindowEvent { window_id, .. } => {
+                    let mut target = WindowEventTarget::None;
+
                     if let Some(win) = &self.window {
                         if window_id == win.get_window_id() {
+                            target = WindowEventTarget::Window;
+                        }
+                    }
+
+                    if let Some(id) = background_window_id {
+                        if id == window_id {
+                            target = WindowEventTarget::Background;
+                        }
+                    }
+
+                    match target {
+                        WindowEventTarget::Window => {
                             self.handle_window_event(event, event_loop, control_flow);
                         }
-                    } else {
-                        // check if window_id == background_window_id
-                        // forward event to background proc.
+                        WindowEventTarget::Background => {
+                            if let Some(event) = event.to_static() {
+                                app_state
+                                    .send_event(AppEvent::BackgroundEvent(event))
+                                    .unwrap();
+                            }
+                        }
+                        _ => {
+                            eprintln!("Window event has no target (window_id={:?})", window_id);
+                        }
                     }
                 }
-                Event::RedrawEventsCleared | Event::MainEventsCleared => {
-                    // todo: forward event to background proc.
+                Event::RedrawEventsCleared => {
                     self.handle_window_event(event, event_loop, control_flow);
+                    if background_window_id.is_some() {
+                        app_state
+                            .send_event(AppEvent::BackgroundEvent(Event::RedrawEventsCleared))
+                            .unwrap();
+                    }
+                }
+                Event::MainEventsCleared => {
+                    self.handle_window_event(event, event_loop, control_flow);
+                    if background_window_id.is_some() {
+                        app_state
+                            .send_event(AppEvent::BackgroundEvent(Event::MainEventsCleared))
+                            .unwrap();
+                    }
                 }
                 Event::MenuEvent { .. } | Event::TrayEvent { .. } => {
                     self.handle_tray_event(event, event_loop, control_flow)
@@ -155,18 +219,7 @@ impl WindowThread {
                 _ => (),
             }
 
-            #[cfg(target_os = "macos")]
-            if self.window.is_some() != self.was_window_open {
-                use tao::platform::macos::{ActivationPolicy, EventLoopWindowTargetExtMacOS};
-                event_loop.set_activation_policy_at_runtime(if self.window.is_some() {
-                    ActivationPolicy::Regular
-                } else {
-                    ActivationPolicy::Accessory
-                });
-            }
-            self.was_window_open = self.window.is_some();
-
-            if self.window.is_none() && self.tray.is_none() {
+            if self.window.is_none() && self.tray.is_none() && background_window_id.is_none() {
                 *control_flow = ControlFlow::Exit;
             }
         });

@@ -1,0 +1,5 @@
+background = false
+window = true
+tray = false
+scene_dir = "./scene/"
+launch_on_startup = false

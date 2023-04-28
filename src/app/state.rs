@@ -9,14 +9,16 @@ use std::sync::{
     Arc, RwLock, RwLockReadGuard,
 };
 
-use crate::app::AppMessage;
-
-use super::{AppEvent, AppEventSender};
+use crate::{
+    app::{AppEvent, AppEventSender, AppMessage},
+    io::Config,
+};
 
 pub struct State {
-    // TODO: extend config? or include config here
+    pub config: Config,
     pub window_open: bool,
     pub tray_open: bool,
+    pub background_open: bool,
 }
 
 #[derive(Clone)]
