@@ -12,6 +12,7 @@ use tao::{
 use crate::{
     app::{AppState, WindowEvent},
     gfx::{ui::Ui, Gfx, GfxContext},
+    scene::Scene,
 };
 
 pub struct Window {
@@ -20,6 +21,7 @@ pub struct Window {
     #[allow(dead_code)]
     app_state: AppState,
     ui: Ui,
+    scene: Scene,
 }
 
 impl Window {
@@ -45,6 +47,8 @@ impl Window {
 
         let gfx = Gfx::new(gfx_context, &window);
 
+        let scene = Scene::new(&gfx.device, &gfx.config);
+
         let ui = Ui::new(
             &window,
             &gfx.device,
@@ -59,6 +63,7 @@ impl Window {
             gfx,
             app_state,
             ui,
+            scene,
         }
     }
 
@@ -96,7 +101,8 @@ impl Window {
             }
             Event::MainEventsCleared => self.window.request_redraw(),
             Event::RedrawEventsCleared => {
-                self.gfx.render(&self.window, Some(&mut self.ui));
+                self.gfx
+                    .render(&self.window, &mut self.scene, Some(&mut self.ui));
             }
             _ => (),
         }

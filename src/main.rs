@@ -10,6 +10,7 @@ mod app;
 pub mod ext; // pub to remove 'unused' warnings
 mod gfx;
 mod io;
+mod scene;
 
 fn main() {
     env_logger::init();

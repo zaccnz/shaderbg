@@ -3,7 +3,7 @@ use std::time::Instant;
 use imgui::{Condition, Context, FontSource, MouseCursor};
 use imgui_wgpu::{Renderer, RendererConfig};
 use tao::{event::Event, window::Window};
-use wgpu::{Device, Queue, RenderPass, TextureFormat};
+use wgpu::{CommandEncoder, Device, Queue, TextureFormat, TextureView};
 
 use crate::{
     app::{AppEvent, AppState, WindowEvent},
@@ -74,8 +74,22 @@ impl Ui {
         window: &Window,
         queue: &Queue,
         device: &Device,
-        rpass: &mut RenderPass<'a>,
+        view: &TextureView,
+        encoder: &mut CommandEncoder,
     ) {
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("UI Pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: true,
+                },
+            })],
+            depth_stencil_attachment: None,
+        });
+
         let now = Instant::now();
         self.imgui.io_mut().update_delta_time(now - self.last_frame);
         self.last_frame = now;
@@ -118,7 +132,7 @@ impl Ui {
         }
 
         self.renderer
-            .render(self.imgui.render(), queue, device, rpass)
+            .render(self.imgui.render(), queue, device, &mut render_pass)
             .expect("Rendering failed");
     }
 

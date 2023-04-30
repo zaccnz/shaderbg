@@ -1,8 +1,8 @@
 /*
  * State shared between all threads
- * this is read only by all threads except the App thread, which will modify the state
+ * this is read only for all threads except the App thread, which will modify the state
  * based on events it receives.  Other threads have to send events to cause a state
- * change
+ * change.
  */
 use std::sync::{
     mpsc::{SendError, Sender},

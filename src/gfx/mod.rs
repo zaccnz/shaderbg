@@ -1,9 +1,11 @@
 use pollster::block_on;
 use tao::{dpi::PhysicalSize, event::Event, window::Window};
-use wgpu::{include_wgsl, Device, Instance, Queue, RenderPipeline, Surface, SurfaceConfiguration};
+use wgpu::{Device, Instance, Queue, Surface, SurfaceConfiguration};
 
-use crate::gfx::ui::Ui;
+use crate::{gfx::ui::Ui, scene::Scene};
 
+pub mod buffer;
+pub mod camera;
 pub mod ui;
 
 // because we cannot create a surface on second thread,
@@ -36,7 +38,6 @@ pub struct Gfx {
     surface: Surface,
     pub device: Device,
     pub queue: Queue,
-    render_pipeline: RenderPipeline,
     size: PhysicalSize<u32>,
     pub hidpi_factor: f64,
 }
@@ -55,8 +56,15 @@ impl Gfx {
         }))
         .unwrap();
 
-        let (device, queue) =
-            block_on(adapter.request_device(&wgpu::DeviceDescriptor::default(), None)).unwrap();
+        let (device, queue) = block_on(adapter.request_device(
+            &wgpu::DeviceDescriptor {
+                features: wgpu::DeviceDescriptor::default().features
+                    | wgpu::Features::POLYGON_MODE_LINE,
+                ..Default::default()
+            },
+            None,
+        ))
+        .unwrap();
 
         let size = window.inner_size();
 
@@ -72,56 +80,11 @@ impl Gfx {
 
         surface.configure(&device, &surface_desc);
 
-        let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
-
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[],
-                push_constant_ranges: &[],
-            });
-
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: "vs_main",
-                buffers: &[],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: "fs_main",
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: surface_desc.format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            multiview: None,
-        });
-
         Gfx {
             config: surface_desc,
             surface,
             device,
             queue,
-            render_pipeline,
             size,
             hidpi_factor,
         }
@@ -136,18 +99,7 @@ impl Gfx {
         self.surface.configure(&self.device, &self.config);
     }
 
-    pub fn render(&mut self, window: &Window, ui: Option<&mut Ui>) {
-        let clear_color = wgpu::Color {
-            r: 0.1,
-            g: 0.2,
-            b: 0.3,
-            a: 1.0,
-        };
-
-        let mut encoder: wgpu::CommandEncoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-
+    pub fn render(&mut self, window: &Window, scene: &mut Scene, ui: Option<&mut Ui>) {
         let frame = match self.surface.get_current_texture() {
             Ok(frame) => frame,
             Err(e) => {
@@ -160,27 +112,15 @@ impl Gfx {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: None,
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &view,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(clear_color),
-                    store: true,
-                },
-            })],
-            depth_stencil_attachment: None,
-        });
+        let mut encoder: wgpu::CommandEncoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-        rpass.set_pipeline(&self.render_pipeline);
-        rpass.draw(0..3, 0..1);
+        scene.render(&self.queue, &view, &mut encoder);
 
         if let Some(ui) = ui {
-            ui.render(window, &self.queue, &self.device, &mut rpass);
+            ui.render(window, &self.queue, &self.device, &view, &mut encoder);
         }
-
-        drop(rpass);
 
         self.queue.submit(Some(encoder.finish()));
 
