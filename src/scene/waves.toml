@@ -1,0 +1,61 @@
+# Waves Scene
+# still working on the format of scene descriptor
+name = "Waves"
+version = "1.0"
+description = "Polygon waves to help you relax.  A rewrite of vanta.waves.js from Vanta.js"
+author = "Teng Bao - gfx code, Zac - shaderbg port"
+
+[settings]
+[settings.wave_height]
+type = "float"
+label = "Wave Height"
+value = 15.0
+min = 0.0
+max = 25.0
+[settings.wave_speed]
+type = "float"
+label = "Wave Speed"
+value = 1.0
+min = -3.0
+max = 3.0
+[settings.wave_noise]
+type = "float"
+label = "Wave Noise"
+value = 4.0
+min = 0.0
+max = 10.0
+[settings.wave_colour]
+type = "colour3"
+label = "Wave Colour"
+value = "#005487"
+
+[resources]
+[resources.shader_render]
+type = "graphics"
+vertex_main = "vs_main"
+fragment_main = "fs_main"
+
+[resources.shader_compute]
+type = "compute"
+main = "generate_vertices"
+
+[resources.vertex_buffer]
+type = "buffer"
+
+[[render_steps]]
+name = "Compute Vertices"
+shaders = ["shader_compute"]
+
+[[render_steps]]
+name = "Waves"
+shaders = ["shader_render"]
+vertices = 300 # todo: find actual value
+
+[render_steps.camera]
+projection = "perspective"
+position = [240, 200, 390]
+look_at = [140, -30, 190]
+
+[render_steps.clear] # can be ommitted for no clear
+type = "colour_depth"
+colour = "#000000"

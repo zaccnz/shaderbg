@@ -15,43 +15,127 @@
  * some shadertoys to work as well.
  */
 
-use rand::Rng;
+use imgui::Ui;
 use wgpu::{
     include_wgsl,
     util::{BufferInitDescriptor, DeviceExt},
-    BindGroup, Buffer, BufferUsages, CommandEncoder, Device, Queue, RenderPipeline,
-    SurfaceConfiguration, TextureView,
+    BindGroup, Buffer, BufferDescriptor, CommandEncoder, ComputePipeline, Device, Queue,
+    RenderPipeline, SurfaceConfiguration, TextureView,
 };
 
 use crate::gfx::{
-    buffer::{CameraMatrix, Index, Vertex},
+    buffer::{CameraMatrix, Vertex, WaveParams, WaveRenderParams},
     camera::Camera,
 };
 
-// TMP: constants for the wave scene
-const WIDTH: u32 = 100;
-const HEIGHT: u32 = 80;
-const WC: usize = (WIDTH + 1) as _;
-const HC: usize = (HEIGHT + 1) as _;
-const WAVE_NOISE: f32 = 4.0;
-const NIL_VERTEX: Vertex = Vertex {
-    position: [0.0, 0.0, 0.0],
-};
-
 pub struct Scene {
-    vertex_buffer: Buffer,
-    index_buffer: Buffer,
-    num_indices: u32,
+    compute_pipeline: ComputePipeline,
+    wave_params: WaveParams,
+    wave_params_buffer: Buffer,
+    wave_render_params: WaveRenderParams,
+    wave_render_params_buffer: Buffer,
+    compute_bind_group: BindGroup,
     render_pipeline: RenderPipeline,
-    camera: Camera,
-    camera_buffer: Buffer,
-    camera_matrix: CameraMatrix,
-    camera_bind_group: BindGroup,
+    //camera: Camera,
+    //camera_buffer: Buffer,
+    //camera_matrix: CameraMatrix,
+    render_bind_group: BindGroup,
+    vertex_buffer: Buffer,
+    //size: BufferAddress,
+    last_colour: [f32; 3],
 }
 
 impl Scene {
     pub fn new(device: &Device, config: &SurfaceConfiguration) -> Scene {
-        let shader = device.create_shader_module(include_wgsl!("waves.wgsl"));
+        let shader_compute = device.create_shader_module(include_wgsl!("vertex.wgsl"));
+
+        // COMPUTE SHADER INIT
+        let wave_params = WaveParams::new();
+
+        let wave_params_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Wave Param Buffer"),
+            contents: bytemuck::cast_slice(&[wave_params]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let slice_size = (wave_params.area() * 6 * 3) as usize * std::mem::size_of::<f32>();
+        let size = slice_size as wgpu::BufferAddress;
+
+        let vertex_buffer = device.create_buffer(&BufferDescriptor {
+            label: Some("Vertex Buffer"),
+            size,
+            mapped_at_creation: false,
+            usage: wgpu::BufferUsages::VERTEX
+                | wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_SRC,
+        });
+
+        let compute_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: false },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                ],
+                label: Some("compute_bind_group_layout"),
+            });
+
+        let compute_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &compute_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wave_params_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: vertex_buffer.as_entire_binding(),
+                },
+            ],
+            label: Some("compute_bind_group"),
+        });
+
+        let compute_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Compute Pipeline Layout"),
+                bind_group_layouts: &[&compute_bind_group_layout],
+                push_constant_ranges: &[],
+            });
+
+        let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("Compute Pipeline"),
+            layout: Some(&compute_pipeline_layout),
+            module: &shader_compute,
+            entry_point: "main",
+        });
+
+        // RENDER SHADER INIT
+        let shader_render = device.create_shader_module(include_wgsl!("waves.wgsl"));
+
+        let wave_render_params = WaveRenderParams::new([0.0, 0.329, 0.529]);
+
+        let wave_render_params_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Wave Render Param Buffer"),
+            contents: bytemuck::cast_slice(&[wave_render_params]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
 
         let camera = Camera::new(
             (240.0, 200.0, 390.0).into(),
@@ -69,34 +153,52 @@ impl Scene {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        let camera_bind_group_layout =
+        let render_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
                     },
-                    count: None,
-                }],
-                label: Some("camera_bind_group_layout"),
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                ],
+                label: Some("render_bind_group_layout"),
             });
 
-        let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &camera_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: camera_buffer.as_entire_binding(),
-            }],
-            label: Some("camera_bind_group"),
+        let render_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &render_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: camera_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wave_render_params_buffer.as_entire_binding(),
+                },
+            ],
+            label: Some("render_bind_group"),
         });
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&camera_bind_group_layout],
+                bind_group_layouts: &[&render_bind_group_layout],
                 push_constant_ranges: &[],
             });
 
@@ -104,12 +206,12 @@ impl Scene {
             label: Some("Render Pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
-                module: &shader,
+                module: &shader_render,
                 entry_point: "vs_main",
                 buffers: &[Vertex::desc()],
             },
             fragment: Some(wgpu::FragmentState {
-                module: &shader,
+                module: &shader_render,
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
                     format: config.format,
@@ -135,84 +237,21 @@ impl Scene {
             multiview: None,
         });
 
-        let mut vertices: [Vertex; WC * HC] = [NIL_VERTEX; WC * HC];
-        let mut gg: [[Index; HC]; WC] = [[0; HC]; WC];
-
-        let mut rng = rand::thread_rng();
-
-        // build vertices
-        let mut idx = 0 as usize;
-        for i in 0..=WIDTH {
-            for j in 0..=HEIGHT {
-                let vertex = Vertex {
-                    position: [
-                        (i as f32 - (WIDTH as f32 * 0.5)) * 18.0,
-                        rng.gen_range(0.0..=WAVE_NOISE) - 10.0,
-                        ((HEIGHT as f32 * 0.5) - j as f32) * 18.0,
-                    ],
-                };
-                vertices[(i * (HEIGHT + 1) + j) as usize] = vertex;
-                gg[i as usize][j as usize] = idx as Index;
-                idx += 1;
-            }
-        }
-
-        let pe = |num: &mut usize| {
-            let tmp = *num;
-            *num += 1;
-            tmp
-        };
-
-        // build indices
-        let mut indices: [Index; WC * HC * 6] = [0; WC * HC * 6];
-        let mut idx = 0 as usize;
-        for i in 1..=WIDTH {
-            for j in 1..=HEIGHT {
-                let d = gg[i as usize][j as usize];
-                let b = gg[i as usize][(j - 1) as usize];
-                let c = gg[(i - 1) as usize][j as usize];
-                let a = gg[(i - 1) as usize][(j - 1) as usize];
-
-                if rng.gen_bool(0.5) {
-                    indices[pe(&mut idx)] = a;
-                    indices[pe(&mut idx)] = b;
-                    indices[pe(&mut idx)] = c;
-                    indices[pe(&mut idx)] = b;
-                    indices[pe(&mut idx)] = c;
-                    indices[pe(&mut idx)] = d;
-                } else {
-                    indices[pe(&mut idx)] = a;
-                    indices[pe(&mut idx)] = b;
-                    indices[pe(&mut idx)] = d;
-                    indices[pe(&mut idx)] = a;
-                    indices[pe(&mut idx)] = c;
-                    indices[pe(&mut idx)] = d;
-                }
-            }
-        }
-
-        // build buffers
-        let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("vertex buffer"),
-            contents: bytemuck::cast_slice(&vertices),
-            usage: BufferUsages::VERTEX,
-        });
-
-        let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("index buffer"),
-            contents: bytemuck::cast_slice(&indices),
-            usage: BufferUsages::INDEX,
-        });
-
         Scene {
-            vertex_buffer,
-            index_buffer,
+            compute_pipeline,
+            wave_params,
+            wave_params_buffer,
+            wave_render_params,
+            wave_render_params_buffer,
+            compute_bind_group,
             render_pipeline,
-            camera,
-            camera_buffer,
-            camera_matrix,
-            camera_bind_group,
-            num_indices: idx as u32,
+            //camera,
+            //camera_buffer,
+            //camera_matrix,
+            render_bind_group,
+            vertex_buffer,
+            //size,
+            last_colour: [0.0, 0.0, 0.0],
         }
     }
 
@@ -226,6 +265,29 @@ impl Scene {
         view: &TextureView,
         encoder: &mut CommandEncoder,
     ) {
+        encoder.push_debug_group("compute");
+        let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            label: Some("Vertex Compute Pass"),
+        });
+
+        let xdim = self.wave_params.dim_x;
+        let ydim = self.wave_params.dim_y;
+
+        self.wave_params.update_time();
+        queue.write_buffer(
+            &self.wave_params_buffer,
+            0,
+            bytemuck::cast_slice(&[self.wave_params]),
+        );
+
+        cpass.set_pipeline(&self.compute_pipeline);
+        cpass.set_bind_group(0, &self.compute_bind_group, &[]);
+        cpass.dispatch_workgroups(xdim, ydim, 1);
+
+        drop(cpass);
+        encoder.pop_debug_group();
+
+        encoder.push_debug_group("render");
         let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Scene Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -239,18 +301,62 @@ impl Scene {
             depth_stencil_attachment: None,
         });
 
-        // NOTE: because time is part of the camera matrix (laziness), I must update the camera every frame
-        self.camera_matrix.update_view_proj(&self.camera);
         queue.write_buffer(
-            &self.camera_buffer,
+            &self.wave_render_params_buffer,
             0,
-            bytemuck::cast_slice(&[self.camera_matrix]),
+            bytemuck::cast_slice(&[self.wave_render_params]),
         );
 
         rpass.set_pipeline(&self.render_pipeline);
-        rpass.set_bind_group(0, &self.camera_bind_group, &[]);
+        rpass.set_bind_group(0, &self.render_bind_group, &[]);
         rpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        rpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-        rpass.draw_indexed(0..self.num_indices, 0, 0..1);
+        rpass.draw(0..(self.wave_params.area() * 6), 0..1);
+
+        drop(rpass);
+        encoder.pop_debug_group();
+    }
+
+    pub fn ui(&mut self, ui: &Ui) {
+        let wp = &mut self.wave_params;
+
+        ui.text("Size");
+        ui.text(
+            "Note: do not change width and height yet.\n... I am not resizing the vertex buffer.",
+        );
+        ui.slider("Width", 1, 200, &mut wp.dim_x);
+        ui.slider("Height", 1, 200, &mut wp.dim_y);
+        ui.slider("Size", 1.0, 30.0, &mut wp.size);
+
+        ui.separator();
+        ui.text("Waves");
+        ui.slider("Speed", 0.0, 4.0, &mut wp.speed);
+
+        ui.text("Note: increasing wave height crashes \nthe program for some reason. I should\n probably figure out why");
+        ui.slider("Height", 1.0, 20.0, &mut wp.height);
+        ui.slider("Noise", 0.0, 10.0, &mut wp.noise);
+
+        let wrp = &mut self.wave_render_params;
+        let imgui_colour = [wrp.colour[0], wrp.colour[1], wrp.colour[2], 1.0];
+
+        let mut open = ui.color_button("Colour", imgui_colour);
+        ui.same_line_with_spacing(0.0, unsafe { ui.style() }.item_inner_spacing[0]);
+        open |= ui.button("Pick colour");
+        if open {
+            ui.open_popup("picker");
+            self.last_colour = wrp.colour;
+        }
+        if let Some(popup) = ui.begin_popup("picker") {
+            ui.color_picker3("Wave Colour", &mut wrp.colour);
+
+            if ui.button("Save") {
+                ui.close_current_popup();
+            }
+            ui.same_line_with_spacing(0.0, unsafe { ui.style() }.item_inner_spacing[0]);
+            if ui.button("Cancel") {
+                ui.close_current_popup();
+                wrp.colour = self.last_colour;
+            }
+            popup.end();
+        }
     }
 }

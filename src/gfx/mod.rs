@@ -119,7 +119,14 @@ impl Gfx {
         scene.render(&self.queue, &view, &mut encoder);
 
         if let Some(ui) = ui {
-            ui.render(window, &self.queue, &self.device, &view, &mut encoder);
+            ui.render(
+                window,
+                &self.queue,
+                &self.device,
+                &view,
+                &mut encoder,
+                scene,
+            );
         }
 
         self.queue.submit(Some(encoder.finish()));
