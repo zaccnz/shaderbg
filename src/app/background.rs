@@ -166,7 +166,7 @@ impl Background {
 
     pub fn run(self, rx: mpsc::Receiver<BackgroundEvent>) {
         let mut gfx = Gfx::new(self.gfx_context, &self.window);
-        let mut scene = Scene::new(&gfx.device, &gfx.config);
+        let mut scene = Scene::new(self.app_state.clone(), &gfx.device, &gfx.config);
 
         loop {
             match rx.recv() {
@@ -178,9 +178,7 @@ impl Background {
                                 event: event::WindowEvent::CloseRequested,
                                 ..
                             } => {
-                                self.app_state
-                                    .send_event(AppEvent::BackgroundClosed)
-                                    .unwrap();
+                                self.app_state.send(AppEvent::BackgroundClosed).unwrap();
                                 break;
                             }
                             Event::MainEventsCleared => self.window.request_redraw(),

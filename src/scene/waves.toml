@@ -1,61 +1,119 @@
 # Waves Scene
 # still working on the format of scene descriptor
+[meta]
 name = "Waves"
 version = "1.0"
 description = "Polygon waves to help you relax.  A rewrite of vanta.waves.js from Vanta.js"
 author = "Teng Bao - gfx code, Zac - shaderbg port"
 
 [settings]
-[settings.wave_height]
-type = "float"
-label = "Wave Height"
-value = 15.0
-min = 0.0
-max = 25.0
-[settings.wave_speed]
-type = "float"
-label = "Wave Speed"
-value = 1.0
-min = -3.0
-max = 3.0
-[settings.wave_noise]
-type = "float"
-label = "Wave Noise"
-value = 4.0
-min = 0.0
-max = 10.0
-[settings.wave_colour]
-type = "colour3"
-label = "Wave Colour"
-value = "#005487"
+  [settings.wave_size]
+  type = "float"
+  label = "Size"
+  value = 20.0
+  min = 10.0
+  max = 30.0
+
+  [settings.wave_height]
+  type = "float"
+  label = "Height"
+  value = 15.0
+  min = 0.0
+  max = 25.0
+
+  [settings.wave_speed]
+  type = "float"
+  label = "Speed"
+  value = 1.0
+  min = -3.0
+  max = 3.0
+
+  [settings.wave_noise]
+  type = "float"
+  label = "Noise"
+  value = 4.0
+  min = 0.0
+  max = 10.0
+
+  [settings.wave_colour]
+  type = "colour3"
+  label = "Colour"
+  value = "#005487"
 
 [resources]
-[resources.shader_render]
-type = "graphics"
-vertex_main = "vs_main"
-fragment_main = "fs_main"
+  [resources.render_shader]
+  type = "graphics"
+  src = "waves.wgsl"
+  vertex_main = "vs_main"
+  fragment_main = "fs_main"
+  
+  [resources.camera]
+  type = "camera"
+  projection = "perspective"
+  position = [240, 200, 390]
+  look_at = [140, -30, 190]
+  
+  [resources.render_params]
+  type = "uniform"
+  values = ["wave_colour"]
+  
+  [resources.compute_shader]
+  type = "compute"
+  src = "vertex.wgsl"
+  main = "main"
+  workgroups = [100, 80, 1]
+  
+  [resources.compute_params]
+  type = "uniform"
+  label = "Wave Param Buffer"
+  values = [
+      "wave_size",
+      "wave_speed",
+      "wave_height",
+      "wave_noise",
+  ]
+  
+  [resources.vertex_buffer]
+  type = "buffer"
+  label = "Vertex Buffer"
+  size = 576000
+    [resources.vertex_buffer.storage]
+    storage_type = "read_write"
 
-[resources.shader_compute]
+    [resources.vertex_buffer.vertex]
+    stride = 12
+    step = "vertex"
+      [[resources.vertex_buffer.vertex.attributes]]
+      offset = 0
+      location = 0
+      format = "Float32x3"
+
+
+[[render_pass]]
 type = "compute"
-main = "generate_vertices"
+label = "Compute Vertices"
+  [render_pass.pipeline]
+  shader = "compute_shader"
+  bindings = ["compute_params", "vertex_buffer", "time"]
+  # note to self - will have some builtin uniforms
+  # e.g. time, shadertoy
 
-[resources.vertex_buffer]
-type = "buffer"
+[[render_pass]]
+type = "render"
+label = "Render Waves"
+  [render_pass.pipeline]
+  shader_vertex = "render_shader"
+  bindings_vertex = ["camera"]
+  bindings_fragment = ["render_params"]
+  # bindings_both = []
+  shader_fragment = "render_shader"
+  topology = "TriangleList"
+  front_face = "Ccw"
+  cull_mode = "None"
 
-[[render_steps]]
-name = "Compute Vertices"
-shaders = ["shader_compute"]
+  [render_pass.clear]
+  colour = "#000000"
+  # depth_stencil = 
 
-[[render_steps]]
-name = "Waves"
-shaders = ["shader_render"]
-vertices = 300 # todo: find actual value
-
-[render_steps.camera]
-projection = "perspective"
-position = [240, 200, 390]
-look_at = [140, -30, 190]
-
-[render_steps.clear] # can be ommitted for no clear
-type = "colour_depth"
-colour = "#000000"
+  [[render_pass.draw]]
+  vertices = "vertex_buffer"

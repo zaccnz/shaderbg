@@ -23,16 +23,18 @@ use wgpu::{
     RenderPipeline, SurfaceConfiguration, TextureView,
 };
 
-use crate::gfx::{
-    buffer::{CameraMatrix, Vertex, WaveParams, WaveRenderParams},
-    camera::Camera,
+use crate::{
+    app::AppState,
+    gfx::{
+        buffer::{CameraMatrix, Vertex},
+        camera::Camera,
+    },
 };
 
 pub struct Scene {
+    state: AppState,
     compute_pipeline: ComputePipeline,
-    wave_params: WaveParams,
     wave_params_buffer: Buffer,
-    wave_render_params: WaveRenderParams,
     wave_render_params_buffer: Buffer,
     compute_bind_group: BindGroup,
     render_pipeline: RenderPipeline,
@@ -45,29 +47,29 @@ pub struct Scene {
     last_colour: [f32; 3],
 }
 
+const VERTEX_COUNT: u32 = 100 * 80 * 6;
+
 impl Scene {
-    pub fn new(device: &Device, config: &SurfaceConfiguration) -> Scene {
+    pub fn new(state: AppState, device: &Device, config: &SurfaceConfiguration) -> Scene {
         let shader_compute = device.create_shader_module(include_wgsl!("vertex.wgsl"));
 
         // COMPUTE SHADER INIT
-        let wave_params = WaveParams::new();
+        let params = state.get().scene_params;
 
         let wave_params_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Wave Param Buffer"),
-            contents: bytemuck::cast_slice(&[wave_params]),
+            contents: bytemuck::cast_slice(&[params]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        let slice_size = (wave_params.area() * 6 * 3) as usize * std::mem::size_of::<f32>();
+        let slice_size = (VERTEX_COUNT * 3) as usize * std::mem::size_of::<f32>();
         let size = slice_size as wgpu::BufferAddress;
 
         let vertex_buffer = device.create_buffer(&BufferDescriptor {
             label: Some("Vertex Buffer"),
             size,
             mapped_at_creation: false,
-            usage: wgpu::BufferUsages::VERTEX
-                | wgpu::BufferUsages::STORAGE
-                | wgpu::BufferUsages::COPY_SRC,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::STORAGE,
         });
 
         let compute_bind_group_layout =
@@ -96,7 +98,6 @@ impl Scene {
                 ],
                 label: Some("compute_bind_group_layout"),
             });
-
         let compute_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &compute_bind_group_layout,
             entries: &[
@@ -129,11 +130,9 @@ impl Scene {
         // RENDER SHADER INIT
         let shader_render = device.create_shader_module(include_wgsl!("waves.wgsl"));
 
-        let wave_render_params = WaveRenderParams::new([0.0, 0.329, 0.529]);
-
         let wave_render_params_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Wave Render Param Buffer"),
-            contents: bytemuck::cast_slice(&[wave_render_params]),
+            contents: bytemuck::cast_slice(&[state.get().scene_render_params]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
@@ -238,10 +237,9 @@ impl Scene {
         });
 
         Scene {
+            state,
             compute_pipeline,
-            wave_params,
             wave_params_buffer,
-            wave_render_params,
             wave_render_params_buffer,
             compute_bind_group,
             render_pipeline,
@@ -255,39 +253,28 @@ impl Scene {
         }
     }
 
-    pub fn _update(&mut self, _delta: f64) {
-        todo!("Update uniforms");
-    }
-
     pub fn render<'a>(
         &'a mut self,
         queue: &Queue,
         view: &TextureView,
         encoder: &mut CommandEncoder,
     ) {
-        encoder.push_debug_group("compute");
+        encoder.push_debug_group("Scene Compute");
         let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("Vertex Compute Pass"),
         });
 
-        let xdim = self.wave_params.dim_x;
-        let ydim = self.wave_params.dim_y;
-
-        self.wave_params.update_time();
-        queue.write_buffer(
-            &self.wave_params_buffer,
-            0,
-            bytemuck::cast_slice(&[self.wave_params]),
-        );
+        let params = self.state.get().scene_params;
+        queue.write_buffer(&self.wave_params_buffer, 0, bytemuck::cast_slice(&[params]));
 
         cpass.set_pipeline(&self.compute_pipeline);
         cpass.set_bind_group(0, &self.compute_bind_group, &[]);
-        cpass.dispatch_workgroups(xdim, ydim, 1);
+        cpass.dispatch_workgroups(100, 80, 1);
 
         drop(cpass);
         encoder.pop_debug_group();
 
-        encoder.push_debug_group("render");
+        encoder.push_debug_group("Scene Render");
         let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Scene Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -304,38 +291,35 @@ impl Scene {
         queue.write_buffer(
             &self.wave_render_params_buffer,
             0,
-            bytemuck::cast_slice(&[self.wave_render_params]),
+            bytemuck::cast_slice(&[self.state.get().scene_render_params]),
         );
 
         rpass.set_pipeline(&self.render_pipeline);
         rpass.set_bind_group(0, &self.render_bind_group, &[]);
         rpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        rpass.draw(0..(self.wave_params.area() * 6), 0..1);
+        rpass.draw(0..VERTEX_COUNT, 0..1);
 
         drop(rpass);
         encoder.pop_debug_group();
     }
 
     pub fn ui(&mut self, ui: &Ui) {
-        let wp = &mut self.wave_params;
+        let mut change = false;
+        let mut wp = self.state.get().scene_params;
+        change |= ui.slider("Size", 1.0, 30.0, &mut wp.size);
+        change |= ui.slider("Speed", 0.0, 4.0, &mut wp.speed);
+        change |= ui.slider("Height", 1.0, 20.0, &mut wp.height);
+        change |= ui.slider("Noise", 0.0, 10.0, &mut wp.noise);
 
-        ui.text("Size");
-        ui.text(
-            "Note: do not change width and height yet.\n... I am not resizing the vertex buffer.",
-        );
-        ui.slider("Width", 1, 200, &mut wp.dim_x);
-        ui.slider("Height", 1, 200, &mut wp.dim_y);
-        ui.slider("Size", 1.0, 30.0, &mut wp.size);
+        if change {
+            self.state
+                .send(crate::app::AppEvent::UpdateSceneParams(wp))
+                .unwrap();
+        }
 
-        ui.separator();
-        ui.text("Waves");
-        ui.slider("Speed", 0.0, 4.0, &mut wp.speed);
+        let mut change = false;
 
-        ui.text("Note: increasing wave height crashes \nthe program for some reason. I should\n probably figure out why");
-        ui.slider("Height", 1.0, 20.0, &mut wp.height);
-        ui.slider("Noise", 0.0, 10.0, &mut wp.noise);
-
-        let wrp = &mut self.wave_render_params;
+        let mut wrp = self.state.get().scene_render_params;
         let imgui_colour = [wrp.colour[0], wrp.colour[1], wrp.colour[2], 1.0];
 
         let mut open = ui.color_button("Colour", imgui_colour);
@@ -346,7 +330,7 @@ impl Scene {
             self.last_colour = wrp.colour;
         }
         if let Some(popup) = ui.begin_popup("picker") {
-            ui.color_picker3("Wave Colour", &mut wrp.colour);
+            change |= ui.color_picker3("Wave Colour", &mut wrp.colour);
 
             if ui.button("Save") {
                 ui.close_current_popup();
@@ -355,8 +339,15 @@ impl Scene {
             if ui.button("Cancel") {
                 ui.close_current_popup();
                 wrp.colour = self.last_colour;
+                change = true;
             }
             popup.end();
+        }
+
+        if change {
+            self.state
+                .send(crate::app::AppEvent::UpdateSceneRenderParams(wrp))
+                .unwrap();
         }
     }
 }

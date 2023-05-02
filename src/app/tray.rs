@@ -79,7 +79,7 @@ impl Tray {
                     *control_flow = ControlFlow::Exit;
                 } else if menu_id == self.menu_item.clone().id() {
                     self.app_state
-                        .send_event(AppEvent::Window(WindowEvent::OpenWindow))
+                        .send(AppEvent::Window(WindowEvent::OpenWindow))
                         .unwrap();
                 }
             }

@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 /*
  * Window thread.  Runs the Event Loop and handles all WindowEvent messages
  */
@@ -90,6 +92,7 @@ impl WindowThread {
     ) {
         let mut handle = Some(handle);
         let mut background_window_id = None;
+        let mut last_frame = Instant::now();
 
         event_loop.run(move |event, event_loop, control_flow| {
             *control_flow = ControlFlow::Wait;
@@ -97,14 +100,16 @@ impl WindowThread {
                 Event::NewEvents(StartCause::Init) => {
                     println!("Event::NewEvents(StartCause::Init)");
 
-                    let state = app_state.get_state();
-                    if state.window_open {
-                        self.window = Some(Window::build(event_loop, app_state.clone()));
+                    {
+                        let state = app_state.get();
+                        if state.window_open {
+                            self.window = Some(Window::build(event_loop, app_state.clone()));
+                        }
+                        if state.tray_open {
+                            self.tray = Some(Tray::build(event_loop, app_state.clone()));
+                        }
                     }
-                    if state.tray_open {
-                        self.tray = Some(Tray::build(event_loop, app_state.clone()));
-                    }
-                    app_state.send_event(AppEvent::EventLoopReady).unwrap();
+                    app_state.send(AppEvent::EventLoopReady).unwrap();
 
                     /*
                     let background = WindowBuilder::new()
@@ -122,7 +127,7 @@ impl WindowThread {
                 Event::LoopDestroyed => {
                     println!("Loop Destroyed");
                     self.tray.take();
-                    app_state.send_event(AppEvent::EventLoopQuit).unwrap();
+                    app_state.send(AppEvent::EventLoopQuit).unwrap();
                     handle.take().unwrap().join().unwrap();
                 }
                 Event::UserEvent(window_event) => {
@@ -138,15 +143,11 @@ impl WindowThread {
                                 panic!("Cannot start tray - already started");
                             }
                             self.tray = Some(Tray::build(event_loop, app_state.clone()));
-                            app_state
-                                .send_event(AppEvent::TrayStateChange(true))
-                                .unwrap();
+                            app_state.send(AppEvent::TrayStateChange(true)).unwrap();
                         }
                         WindowEvent::CloseTray => {
                             self.tray.take();
-                            app_state
-                                .send_event(AppEvent::TrayStateChange(false))
-                                .unwrap();
+                            app_state.send(AppEvent::TrayStateChange(false)).unwrap();
                         }
                         WindowEvent::CreateBackgroundWindow => {
                             let background = Background::new(
@@ -157,7 +158,7 @@ impl WindowThread {
                             background_window_id = Some(background.window.id());
 
                             app_state
-                                .send_event(AppEvent::BackgroundCreated(background))
+                                .send(AppEvent::BackgroundCreated(background))
                                 .unwrap();
                         }
                         WindowEvent::CloseBackgroundWindow => {
@@ -187,9 +188,7 @@ impl WindowThread {
                         }
                         WindowEventTarget::Background => {
                             if let Some(event) = event.to_static() {
-                                app_state
-                                    .send_event(AppEvent::BackgroundEvent(event))
-                                    .unwrap();
+                                app_state.send(AppEvent::BackgroundEvent(event)).unwrap();
                             }
                         }
                         _ => {
@@ -201,15 +200,21 @@ impl WindowThread {
                     self.handle_window_event(event, event_loop, control_flow);
                     if background_window_id.is_some() {
                         app_state
-                            .send_event(AppEvent::BackgroundEvent(Event::RedrawEventsCleared))
+                            .send(AppEvent::BackgroundEvent(Event::RedrawEventsCleared))
                             .unwrap();
                     }
                 }
                 Event::MainEventsCleared => {
+                    let now = Instant::now();
+                    app_state
+                        .send(AppEvent::Update((now - last_frame).as_secs_f64()))
+                        .unwrap();
+                    last_frame = now;
+
                     self.handle_window_event(event, event_loop, control_flow);
                     if background_window_id.is_some() {
                         app_state
-                            .send_event(AppEvent::BackgroundEvent(Event::MainEventsCleared))
+                            .send(AppEvent::BackgroundEvent(Event::MainEventsCleared))
                             .unwrap();
                     }
                 }

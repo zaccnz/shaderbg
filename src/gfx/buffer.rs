@@ -55,8 +55,6 @@ static mut STARTED_MS: std::time::SystemTime = std::time::SystemTime::UNIX_EPOCH
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct WaveParams {
-    pub dim_x: u32,
-    pub dim_y: u32,
     pub size: f32,
     pub speed: f32,
     pub height: f32,
@@ -71,8 +69,6 @@ impl WaveParams {
         }
 
         Self {
-            dim_x: 100,
-            dim_y: 80,
             size: 18.0,
             speed: 1.0,
             height: 15.0,
@@ -89,10 +85,6 @@ impl WaveParams {
                 .as_millis() as u32
         };
     }
-
-    pub fn area(&self) -> u32 {
-        self.dim_x * self.dim_y
-    }
 }
 
 #[repr(C)]
@@ -103,9 +95,9 @@ pub struct WaveRenderParams {
 }
 
 impl WaveRenderParams {
-    pub fn new(colour: [f32; 3]) -> WaveRenderParams {
+    pub fn new() -> WaveRenderParams {
         WaveRenderParams {
-            colour: colour,
+            colour: [0.0, 0.329, 0.529],
             spacer: 0.0,
         }
     }

@@ -11,6 +11,7 @@ use std::sync::{
 
 use crate::{
     app::{AppEvent, AppEventSender, AppMessage},
+    gfx::buffer::{WaveParams, WaveRenderParams},
     io::Config,
 };
 
@@ -19,6 +20,8 @@ pub struct State {
     pub window_open: bool,
     pub tray_open: bool,
     pub background_open: bool,
+    pub scene_params: WaveParams,
+    pub scene_render_params: WaveRenderParams,
 }
 
 #[derive(Clone)]
@@ -41,11 +44,11 @@ impl AppState {
         }
     }
 
-    pub fn get_state(&self) -> RwLockReadGuard<'_, State> {
+    pub fn get(&self) -> RwLockReadGuard<'_, State> {
         self.state.read().unwrap()
     }
 
-    pub fn send_event(&self, event: AppEvent) -> Result<(), SendError<AppMessage>> {
+    pub fn send(&self, event: AppEvent) -> Result<(), SendError<AppMessage>> {
         self.app_tx.send((event, self.owner.clone()))
     }
 

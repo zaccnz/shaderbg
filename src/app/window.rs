@@ -47,7 +47,7 @@ impl Window {
 
         let gfx = Gfx::new(gfx_context, &window);
 
-        let scene = Scene::new(&gfx.device, &gfx.config);
+        let scene = Scene::new(app_state.clone(), &gfx.device, &gfx.config);
 
         let ui = Ui::new(
             &window,

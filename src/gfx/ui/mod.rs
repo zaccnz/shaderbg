@@ -109,15 +109,15 @@ impl Ui {
                 .build(|| {
                     ui.text("imgui-rs on WGPU & Tao!");
                     ui.separator();
-                    let mut tray_on = self.app_state.get_state().tray_open;
+                    let mut tray_on = self.app_state.get().tray_open;
                     ui.checkbox("Tray", &mut tray_on);
-                    if tray_on != self.app_state.get_state().tray_open {
+                    if tray_on != self.app_state.get().tray_open {
                         let event = if tray_on {
                             WindowEvent::StartTray
                         } else {
                             WindowEvent::CloseTray
                         };
-                        self.app_state.send_event(AppEvent::Window(event)).unwrap();
+                        self.app_state.send(AppEvent::Window(event)).unwrap();
                     }
                     if ui.button("Show ImGui Demo Window") {
                         self.demo_open = true;

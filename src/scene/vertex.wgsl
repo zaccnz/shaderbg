@@ -1,8 +1,9 @@
 // Compute shader to generate vertices of our wave
 
+const dim_x: i32 = 100;
+const dim_y: i32 = 80;
+
 struct WaveParams {
-    dim_x: u32,
-    dim_y: u32,
     size: f32,
     speed: f32,
     height: f32,
@@ -23,8 +24,8 @@ struct Vertex {
 var<storage, read_write> vertices: array<Vertex>;
 
 fn gen_vertex(x: u32, z: u32) -> Vertex {
-    let vx = (f32(x) - (f32(param.dim_x) * 0.5)) * param.size;
-    let vz = ((f32(param.dim_y) * 0.5) - f32(z)) * param.size;
+    let vx = (f32(x) - (f32(dim_x) * 0.5)) * param.size;
+    let vz = ((f32(dim_y) * 0.5) - f32(z)) * param.size;
 
     let crossChop = sqrt(param.speed) * cos(-vx - (vz * 0.7)); // + s * (i % 229) / 229 * 5
     let t = ((param.speed * f32(param.time) / (1000.0 / 60.0) * 0.02) - (param.speed * vx * 0.025)) + (param.speed * vz * 0.015);
@@ -51,7 +52,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let c = gen_vertex(x, y + u32(1));
     let d = gen_vertex(x, y);
 
-    let index = ((x * param.dim_y) + y) * u32(6);
+    let index = ((x * u32(dim_y)) + y) * u32(6);
 
     if random2(vec2<f32>(a.x, a.z)) > 0.5 {
         vertices[index] = a;
