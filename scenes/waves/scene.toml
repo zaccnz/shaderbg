@@ -4,7 +4,7 @@
 name = "Waves"
 version = "1.0"
 description = "Polygon waves to help you relax.  A rewrite of vanta.waves.js from Vanta.js"
-author = "Teng Bao - gfx code, Zac - shaderbg port"
+author = "Teng Bao - waves.vanta.js, Zac - shaderbg port"
 
 [settings]
   [settings.wave_size]
@@ -40,9 +40,15 @@ author = "Teng Bao - gfx code, Zac - shaderbg port"
   label = "Colour"
   value = "#005487"
 
+# [assets]
+# these are resources such as textures or meshes
+# i will separate them so that they can be loaded first, and referenced by
+# resources.
+
 [resources]
   [resources.render_shader]
-  type = "graphics"
+  type = "shader"
+  label = "Render Shader"
   src = "waves.wgsl"
   vertex_main = "vs_main"
   fragment_main = "fs_main"
@@ -58,10 +64,10 @@ author = "Teng Bao - gfx code, Zac - shaderbg port"
   values = ["wave_colour"]
   
   [resources.compute_shader]
-  type = "compute"
+  type = "shader"
+  label = "Compute Shader"
   src = "vertex.wgsl"
   main = "main"
-  workgroups = [100, 80, 1]
   
   [resources.compute_params]
   type = "uniform"
@@ -89,31 +95,39 @@ author = "Teng Bao - gfx code, Zac - shaderbg port"
       format = "Float32x3"
 
 
-[[render_pass]]
+[[render_passes]]
 type = "compute"
 label = "Compute Vertices"
-  [render_pass.pipeline]
+workgroups = [100, 80, 1]
+  [render_passes.pipeline]
   shader = "compute_shader"
-  bindings = ["compute_params", "vertex_buffer", "time"]
+  bindings = ["compute_params", "vertex_buffer"]
   # note to self - will have some builtin uniforms
   # e.g. time, shadertoy
 
-[[render_pass]]
+[[render_passes]]
 type = "render"
 label = "Render Waves"
-  [render_pass.pipeline]
+  [render_passes.pipeline]
   shader_vertex = "render_shader"
-  bindings_vertex = ["camera"]
-  bindings_fragment = ["render_params"]
-  # bindings_both = []
   shader_fragment = "render_shader"
+  bindings = ["camera", "render_params"]
+  bindings_visibility = ["Vertex", "Fragment"]
   topology = "TriangleList"
+  polygon_mode = "Fill"
   front_face = "Ccw"
   cull_mode = "None"
 
-  [render_pass.clear]
-  colour = "#000000"
-  # depth_stencil = 
+  [render_passes.pipeline.vertex]
+    stride = 12
+    step = "vertex"
+    [[render_passes.pipeline.vertex.attributes]]
+      offset = 0
+      location = 0
+      format = "Float32x3"
 
-  [[render_pass.draw]]
-  vertices = "vertex_buffer"
+  [render_passes.clear]
+  colour = "#000000"
+
+  [[render_passes.draw]]
+  vertex_buffer = "vertex_buffer"

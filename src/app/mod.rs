@@ -10,8 +10,8 @@ use std::sync::{mpsc, Arc, RwLock};
 use tao::{event::Event, event_loop::EventLoopProxy};
 
 use crate::{
-    gfx::buffer::{WaveParams, WaveRenderParams},
     io::{Args, Config},
+    scene::Scene,
 };
 
 mod background;
@@ -35,8 +35,6 @@ pub enum AppEvent {
     BackgroundCreated(Background),
     BackgroundEvent(Event<'static, WindowEvent>),
     BackgroundClosed,
-    UpdateSceneParams(WaveParams),
-    UpdateSceneRenderParams(WaveRenderParams),
 }
 
 #[derive(Clone, Debug)]
@@ -51,6 +49,7 @@ pub type AppMessage = (AppEvent, AppEventSender);
 pub fn start_main(
     args: Args,
     config: Config,
+    scene: Scene,
     proxy: EventLoopProxy<WindowEvent>,
 ) -> (AppState, std::thread::JoinHandle<()>) {
     let (tx, rx) = mpsc::channel::<AppMessage>();
@@ -61,8 +60,9 @@ pub fn start_main(
         window_open: args.window.unwrap_or(config.window),
         tray_open: args.tray.unwrap_or(config.tray),
         background_open: true,
-        scene_params: WaveParams::new(),
-        scene_render_params: WaveRenderParams::new(),
+        scene,
+        //scene_params: WaveParams::new(),
+        //scene_render_params: WaveRenderParams::new(),
     }));
     let app_state = AppState::build(state.clone(), app_tx, AppEventSender::Window);
     let return_state = app_state.clone();
@@ -117,19 +117,10 @@ pub fn start_main(
                             }
                         }
                         AppEvent::Update(_dt) => {
+                            /*
                             if let Ok(mut state) = state.write() {
                                 state.scene_params.update_time();
-                            }
-                        }
-                        AppEvent::UpdateSceneParams(params) => {
-                            if let Ok(mut state) = state.write() {
-                                state.scene_params = params;
-                            }
-                        }
-                        AppEvent::UpdateSceneRenderParams(params) => {
-                            if let Ok(mut state) = state.write() {
-                                state.scene_render_params = params;
-                            }
+                            } */
                         }
                         AppEvent::EventLoopReady => {
                             if state.read().unwrap().background_open {

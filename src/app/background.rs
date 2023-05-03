@@ -10,7 +10,7 @@ use tao::{
 use crate::{
     app::{AppState, WindowEvent},
     gfx::{Gfx, GfxContext},
-    scene::Scene,
+    scene::Resources,
 };
 
 use super::AppEvent;
@@ -166,7 +166,13 @@ impl Background {
 
     pub fn run(self, rx: mpsc::Receiver<BackgroundEvent>) {
         let mut gfx = Gfx::new(self.gfx_context, &self.window);
-        let mut scene = Scene::new(self.app_state.clone(), &gfx.device, &gfx.config);
+        let mut resources = Resources::new(
+            self.app_state.clone(),
+            &self.app_state.get().scene,
+            &gfx.device,
+            &gfx.config,
+        )
+        .unwrap();
 
         loop {
             match rx.recv() {
@@ -183,7 +189,7 @@ impl Background {
                             }
                             Event::MainEventsCleared => self.window.request_redraw(),
                             Event::RedrawEventsCleared => {
-                                gfx.render(&self.window, &mut scene, None);
+                                gfx.render(&self.window, Some(&mut resources), None);
                             }
                             _ => {}
                         },

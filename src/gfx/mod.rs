@@ -2,7 +2,7 @@ use pollster::block_on;
 use tao::{dpi::PhysicalSize, event::Event, window::Window};
 use wgpu::{Device, Instance, Queue, Surface, SurfaceConfiguration};
 
-use crate::{gfx::ui::Ui, scene::Scene};
+use crate::{gfx::ui::Ui, scene::Resources};
 
 pub mod buffer;
 pub mod camera;
@@ -99,7 +99,7 @@ impl Gfx {
         self.surface.configure(&self.device, &self.config);
     }
 
-    pub fn render(&mut self, window: &Window, scene: &mut Scene, ui: Option<&mut Ui>) {
+    pub fn render(&mut self, window: &Window, scene: Option<&mut Resources>, ui: Option<&mut Ui>) {
         let frame = match self.surface.get_current_texture() {
             Ok(frame) => frame,
             Err(e) => {
@@ -116,17 +116,12 @@ impl Gfx {
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-        scene.render(&self.queue, &view, &mut encoder);
+        if let Some(scene) = scene {
+            scene.render(&self.queue, &view, &mut encoder);
+        }
 
         if let Some(ui) = ui {
-            ui.render(
-                window,
-                &self.queue,
-                &self.device,
-                &view,
-                &mut encoder,
-                scene,
-            );
+            ui.render(window, &self.queue, &self.device, &view, &mut encoder);
         }
 
         self.queue.submit(Some(encoder.finish()));

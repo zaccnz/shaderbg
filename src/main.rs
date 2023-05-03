@@ -1,7 +1,11 @@
+use std::path::PathBuf;
+
 /*
  * App entrypoint
  */
 use clap::Parser;
+
+use crate::scene::Scene;
 #[cfg(target_os = "macos")]
 #[macro_use]
 extern crate objc;
@@ -14,6 +18,11 @@ mod scene;
 
 fn main() {
     env_logger::init();
+
+    let scene = match Scene::load(PathBuf::from("scenes/waves")) {
+        Ok(scene) => scene,
+        Err(e) => panic!("{:?}", e),
+    };
 
     let args = io::Args::parse();
 
@@ -32,7 +41,7 @@ fn main() {
 
     let (win_thread, event_loop) = app::WindowThread::build();
 
-    let (app_state, handle) = app::start_main(args, config, event_loop.create_proxy());
+    let (app_state, handle) = app::start_main(args, config, scene, event_loop.create_proxy());
 
     win_thread.run(event_loop, app_state, handle);
 }

@@ -8,7 +8,6 @@ use wgpu::{CommandEncoder, Device, Queue, TextureFormat, TextureView};
 use crate::{
     app::{AppEvent, AppState, WindowEvent},
     ext::{self, imgui_tao_support::TaoPlatform},
-    scene::Scene,
 };
 
 pub struct Ui {
@@ -77,7 +76,6 @@ impl Ui {
         device: &Device,
         view: &TextureView,
         encoder: &mut CommandEncoder,
-        scene: &mut Scene,
     ) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("UI Pass"),
@@ -124,12 +122,16 @@ impl Ui {
                     }
                 });
 
-            let window = ui.window("Scene Properties");
-            window
-                .size([300.0, 400.0], Condition::FirstUseEver)
-                .build(|| {
-                    scene.ui(ui);
-                });
+            /*
+            if let Some(scene) = scene {
+                let window = ui.window("Scene Settings");
+                window
+                    .size([300.0, 400.0], Condition::FirstUseEver)
+                    .build(|| {
+                        ui.text("WIP");
+                        //scene.ui(ui);
+                    });
+            }*/
 
             if self.demo_open {
                 ui.show_demo_window(&mut self.demo_open);

@@ -11,8 +11,8 @@ use std::sync::{
 
 use crate::{
     app::{AppEvent, AppEventSender, AppMessage},
-    gfx::buffer::{WaveParams, WaveRenderParams},
     io::Config,
+    scene::Scene,
 };
 
 pub struct State {
@@ -20,8 +20,7 @@ pub struct State {
     pub window_open: bool,
     pub tray_open: bool,
     pub background_open: bool,
-    pub scene_params: WaveParams,
-    pub scene_render_params: WaveRenderParams,
+    pub scene: Scene,
 }
 
 #[derive(Clone)]
