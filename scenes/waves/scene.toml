@@ -10,7 +10,7 @@ author = "Teng Bao - waves.vanta.js, Zac - shaderbg port"
   [settings.wave_size]
   type = "float"
   label = "Size"
-  value = 20.0
+  value = 18.0
   min = 10.0
   max = 30.0
 
@@ -101,7 +101,7 @@ label = "Compute Vertices"
 workgroups = [100, 80, 1]
   [render_passes.pipeline]
   shader = "compute_shader"
-  bindings = ["compute_params", "vertex_buffer"]
+  bindings = ["compute_params", "vertex_buffer", "time"]
   # note to self - will have some builtin uniforms
   # e.g. time, shadertoy
 

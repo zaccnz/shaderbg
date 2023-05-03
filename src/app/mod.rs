@@ -10,6 +10,7 @@ use std::sync::{mpsc, Arc, RwLock};
 use tao::{event::Event, event_loop::EventLoopProxy};
 
 use crate::{
+    gfx::buffer::Time,
     io::{Args, Config},
     scene::Scene,
 };
@@ -61,8 +62,7 @@ pub fn start_main(
         tray_open: args.tray.unwrap_or(config.tray),
         background_open: true,
         scene,
-        //scene_params: WaveParams::new(),
-        //scene_render_params: WaveRenderParams::new(),
+        time: Time::new(),
     }));
     let app_state = AppState::build(state.clone(), app_tx, AppEventSender::Window);
     let return_state = app_state.clone();
@@ -116,11 +116,10 @@ pub fn start_main(
                                 handle.join().unwrap();
                             }
                         }
-                        AppEvent::Update(_dt) => {
-                            /*
+                        AppEvent::Update(dt) => {
                             if let Ok(mut state) = state.write() {
-                                state.scene_params.update_time();
-                            } */
+                                state.time.update_time(dt);
+                            }
                         }
                         AppEvent::EventLoopReady => {
                             if state.read().unwrap().background_open {

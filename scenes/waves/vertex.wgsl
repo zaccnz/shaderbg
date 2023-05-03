@@ -23,14 +23,20 @@ struct Vertex {
 @group(0) @binding(1)
 var<storage, read_write> vertices: array<Vertex>;
 
-const time = 0;
+struct Time {
+    time: u32,
+    dt: f32,
+}
+
+@group(0) @binding(2)
+var<uniform> time : Time;
 
 fn gen_vertex(x: u32, z: u32) -> Vertex {
     let vx = (f32(x) - (f32(dim_x) * 0.5)) * param.size;
     let vz = ((f32(dim_y) * 0.5) - f32(z)) * param.size;
 
     let crossChop = sqrt(param.speed) * cos(-vx - (vz * 0.7)); // + s * (i % 229) / 229 * 5
-    let t = ((param.speed * f32(time) / (1000.0 / 60.0) * 0.02) - (param.speed * vx * 0.025)) + (param.speed * vz * 0.015);
+    let t = ((param.speed * f32(time.time) / (1000.0 / 60.0) * 0.02) - (param.speed * vx * 0.025)) + (param.speed * vz * 0.015);
     let delta = sin(t + crossChop);
     let trochoidDelta = pow(delta + 1.0, 2.0) / 4.0;
 

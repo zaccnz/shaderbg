@@ -37,6 +37,7 @@ enum ResourceType {
 struct BufferResource {
     buffer: Buffer,
     vertex: Option<BufferVertex>,
+    vertex_count: Option<usize>,
     storage: Option<BufferStorage>,
 }
 
@@ -59,9 +60,12 @@ struct CameraResource {
 }
 
 #[allow(dead_code)]
-struct UniformResource {
-    content: Box<[u8]>,
-    offsets: HashMap<String, usize>,
+enum UniformResource {
+    Custom {
+        content: Box<[u8]>,
+        offsets: HashMap<String, usize>,
+    },
+    Internal,
 }
 
 #[derive(Debug)]
@@ -117,6 +121,22 @@ impl Resources {
 
         let mut shaders: HashMap<String, ShaderResource> = HashMap::new();
 
+        // Construct builtin uniforms
+        buffers.insert(
+            "time".to_string(),
+            BufferResource {
+                buffer: device.create_buffer_init(&BufferInitDescriptor {
+                    label: Some("Time Uniform"),
+                    contents: bytemuck::cast_slice(&[app_state.get().time]),
+                    usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+                }),
+                vertex: None,
+                vertex_count: None,
+                storage: None,
+            },
+        );
+        uniforms.insert("time".to_string(), UniformResource::Internal);
+
         for (id, res) in descriptor.resources.iter() {
             match res {
                 Resource::Buffer {
@@ -145,6 +165,7 @@ impl Resources {
                         BufferResource {
                             buffer,
                             vertex: vertex.clone(),
+                            vertex_count: vertex.as_ref().map(|v| size / v.stride),
                             storage: storage.clone(),
                         },
                     );
@@ -177,6 +198,7 @@ impl Resources {
                         BufferResource {
                             buffer: camera_buffer,
                             vertex: None,
+                            vertex_count: None,
                             storage: None,
                         },
                     );
@@ -247,13 +269,14 @@ impl Resources {
                         BufferResource {
                             buffer,
                             vertex: None,
+                            vertex_count: None,
                             storage: None,
                         },
                     );
 
                     uniforms.insert(
                         id.clone(),
-                        UniformResource {
+                        UniformResource::Custom {
                             content: content.into_boxed_slice(),
                             offsets,
                         },
@@ -608,8 +631,13 @@ impl Resources {
         todo!("Update resource func");
     }
 
-    pub fn render(&self, _queue: &Queue, view: &TextureView, encoder: &mut CommandEncoder) {
+    pub fn render(&self, queue: &Queue, view: &TextureView, encoder: &mut CommandEncoder) {
         let passes = &self.app_state.get().scene.descriptor.render_passes;
+
+        if let Some(time) = self.buffers.get(&"time".to_string()) {
+            let time_content = self.app_state.get().time;
+            queue.write_buffer(&time.buffer, 0, bytemuck::cast_slice(&[time_content]));
+        }
 
         for (i, pass) in passes.iter().enumerate() {
             match pass {
@@ -630,15 +658,6 @@ impl Resources {
                     let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                         label: Some("Vertex Compute Pass"),
                     });
-
-                    /*
-                    let params = self.state.get().scene_params;
-                    queue.write_buffer(
-                        &self.wave_params_buffer,
-                        0,
-                        bytemuck::cast_slice(&[params]),
-                    );
-                     */
 
                     cpass.set_pipeline(cp);
                     cpass.set_bind_group(0, bg, &[]);
@@ -679,14 +698,6 @@ impl Resources {
                         depth_stencil_attachment: None,
                     });
 
-                    /*
-                    queue.write_buffer(
-                        &self.wave_render_params_buffer,
-                        0,
-                        bytemuck::cast_slice(&[self.state.get().scene_render_params]),
-                    );
-                    */
-
                     rpass.set_pipeline(rp);
                     for draw in draw {
                         let vertex_buffer = self
@@ -695,7 +706,13 @@ impl Resources {
                             .unwrap();
                         rpass.set_bind_group(0, bg, &[]);
                         rpass.set_vertex_buffer(0, vertex_buffer.buffer.slice(..));
-                        rpass.draw(0..(80 * 100 * 6), 0..1);
+                        rpass.draw(
+                            0..(vertex_buffer
+                                .vertex_count
+                                .expect("Vertex buffer has no vertex count"))
+                                as _,
+                            0..1,
+                        );
                     }
 
                     drop(rpass);
