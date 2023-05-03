@@ -19,7 +19,7 @@ use crate::{
     app::AppState,
     gfx::{buffer::CameraMatrix, camera::Camera},
     io::scene::{
-        pass::{RenderPass, RenderPipelineBindingVisibility},
+        pass::{RenderClear, RenderDraw, RenderPass, RenderPipelineBindingVisibility},
         resource::{BufferStorage, BufferStorageType, BufferVertex, Resource},
     },
     scene::Scene,
@@ -48,9 +48,20 @@ struct ShaderResource {
     fragment_entry: Option<String>,
 }
 
-enum PipelineResource {
-    Compute(ComputePipeline, BindGroup),
-    Render(RenderPipeline, BindGroup),
+enum PassResource {
+    Compute {
+        label: Option<String>,
+        pipeline: ComputePipeline,
+        bind_group: BindGroup,
+        workgroups: [u32; 3],
+    },
+    Render {
+        label: Option<String>,
+        pipeline: RenderPipeline,
+        bind_group: BindGroup,
+        clear: Option<RenderClear>,
+        draw: Vec<RenderDraw>,
+    },
 }
 
 #[allow(dead_code)]
@@ -99,8 +110,8 @@ pub struct Resources {
     app_state: AppState,
     buffers: HashMap<String, BufferResource>,
     cameras: HashMap<String, CameraResource>,
-    pipelines: HashMap<usize, PipelineResource>,
     uniforms: HashMap<String, UniformResource>,
+    passes: Vec<PassResource>,
 }
 
 impl Resources {
@@ -113,7 +124,7 @@ impl Resources {
     ) -> Result<Resources, ResourceError> {
         let descriptor = &scene.descriptor;
 
-        let pipelines = HashMap::new();
+        let passes = Vec::<PassResource>::new();
 
         let mut buffers = HashMap::new();
         let mut cameras = HashMap::new();
@@ -288,25 +299,20 @@ impl Resources {
         let mut resources = Resources {
             app_state,
             buffers,
-            pipelines,
             cameras,
             uniforms,
+            passes,
         };
 
-        for (i, pass) in descriptor.render_passes.iter().enumerate() {
-            resources.pipelines.insert(
-                i,
-                match pass {
-                    RenderPass::Compute {
-                        label, pipeline, ..
-                    } => resources
-                        .build_compute_pipeline(scene, label, pipeline, device, &shaders)?,
-                    RenderPass::Render {
-                        label, pipeline, ..
-                    } => resources
-                        .build_render_pipeline(scene, label, pipeline, device, config, &shaders)?,
-                },
-            );
+        for pass in descriptor.render_passes.iter() {
+            resources.passes.push(match pass {
+                RenderPass::Compute { .. } => {
+                    resources.build_compute_pipeline(scene, pass, device, &shaders)?
+                }
+                RenderPass::Render { .. } => {
+                    resources.build_render_pipeline(scene, pass, device, config, &shaders)?
+                }
+            });
         }
 
         Ok(resources)
@@ -488,11 +494,19 @@ impl Resources {
     fn build_compute_pipeline(
         &self,
         scene: &Scene,
-        label: &Option<String>,
-        pipeline: &crate::io::scene::pass::ComputePipeline,
+        pass: &RenderPass,
         device: &Device,
         shaders: &HashMap<String, ShaderResource>,
-    ) -> Result<PipelineResource, ResourceError> {
+    ) -> Result<PassResource, ResourceError> {
+        let (label, pipeline, workgroups) = match pass {
+            RenderPass::Compute {
+                label,
+                pipeline,
+                workgroups,
+            } => (label, pipeline, workgroups),
+            RenderPass::Render { .. } => panic!("how did we get here"),
+        };
+
         let (bind_group_layout, bind_group) =
             self.build_bind_group(label, Some(&pipeline.bindings), None, device)?;
 
@@ -519,18 +533,32 @@ impl Resources {
             entry_point: entry_point.deref(),
         });
 
-        Ok(PipelineResource::Compute(compute_pipeline, bind_group))
+        Ok(PassResource::Compute {
+            label: label.clone(),
+            pipeline: compute_pipeline,
+            bind_group,
+            workgroups: [workgroups[0], workgroups[1], workgroups[2]],
+        })
     }
 
     fn build_render_pipeline(
         &self,
         scene: &Scene,
-        label: &Option<String>,
-        pipeline: &crate::io::scene::pass::RenderPipeline,
+        pass: &RenderPass,
         device: &Device,
         config: &SurfaceConfiguration,
         shaders: &HashMap<String, ShaderResource>,
-    ) -> Result<PipelineResource, ResourceError> {
+    ) -> Result<PassResource, ResourceError> {
+        let (label, pipeline, clear, draw) = match pass {
+            RenderPass::Render {
+                label,
+                pipeline,
+                clear,
+                draw,
+            } => (label, pipeline, clear, draw),
+            RenderPass::Compute { .. } => panic!("how did we get here"),
+        };
+
         if pipeline.bindings.as_ref().map(|vec| vec.len())
             != pipeline.bindings_visibility.as_ref().map(|vec| vec.len())
         {
@@ -624,7 +652,13 @@ impl Resources {
 
         // TODO: ensure our Draw params a) match vertex layout and b) are valid resources
 
-        Ok(PipelineResource::Render(render_pipeline, bind_group))
+        Ok(PassResource::Render {
+            label: label.clone(),
+            pipeline: render_pipeline,
+            bind_group,
+            clear: clear.clone(),
+            draw: draw.clone(),
+        })
     }
 
     pub fn _update_setting() {
@@ -632,26 +666,19 @@ impl Resources {
     }
 
     pub fn render(&self, queue: &Queue, view: &TextureView, encoder: &mut CommandEncoder) {
-        let passes = &self.app_state.get().scene.descriptor.render_passes;
-
         if let Some(time) = self.buffers.get(&"time".to_string()) {
             let time_content = self.app_state.get().time;
             queue.write_buffer(&time.buffer, 0, bytemuck::cast_slice(&[time_content]));
         }
 
-        for (i, pass) in passes.iter().enumerate() {
+        for pass in self.passes.iter() {
             match pass {
-                RenderPass::Compute {
+                PassResource::Compute {
                     label,
-                    pipeline: _,
+                    pipeline,
+                    bind_group,
                     workgroups,
                 } => {
-                    let pipeline = self.pipelines.get(&i).unwrap();
-                    let (cp, bg) = match pipeline {
-                        PipelineResource::Compute(cp, bg) => (cp, bg),
-                        PipelineResource::Render(_, _) => panic!("oops"),
-                    };
-
                     if let Some(label) = label {
                         encoder.push_debug_group(label);
                     }
@@ -659,8 +686,8 @@ impl Resources {
                         label: Some("Vertex Compute Pass"),
                     });
 
-                    cpass.set_pipeline(cp);
-                    cpass.set_bind_group(0, bg, &[]);
+                    cpass.set_pipeline(pipeline);
+                    cpass.set_bind_group(0, bind_group, &[]);
                     cpass.dispatch_workgroups(workgroups[0], workgroups[1], workgroups[2]);
 
                     drop(cpass);
@@ -668,18 +695,13 @@ impl Resources {
                         encoder.pop_debug_group();
                     }
                 }
-                RenderPass::Render {
+                PassResource::Render {
                     label,
-                    pipeline: _,
+                    pipeline,
+                    bind_group,
                     clear: _,
                     draw,
                 } => {
-                    let pipeline = self.pipelines.get(&i).unwrap();
-                    let (rp, bg) = match pipeline {
-                        PipelineResource::Render(cp, bg) => (cp, bg),
-                        PipelineResource::Compute(_, _) => panic!("oops"),
-                    };
-
                     if let Some(label) = label {
                         encoder.push_debug_group(label);
                     }
@@ -698,13 +720,13 @@ impl Resources {
                         depth_stencil_attachment: None,
                     });
 
-                    rpass.set_pipeline(rp);
+                    rpass.set_pipeline(pipeline);
                     for draw in draw {
                         let vertex_buffer = self
                             .buffers
                             .get(draw.vertex_buffer.as_ref().unwrap())
                             .unwrap();
-                        rpass.set_bind_group(0, bg, &[]);
+                        rpass.set_bind_group(0, bind_group, &[]);
                         rpass.set_vertex_buffer(0, vertex_buffer.buffer.slice(..));
                         rpass.draw(
                             0..(vertex_buffer

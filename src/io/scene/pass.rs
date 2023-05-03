@@ -129,13 +129,13 @@ impl RenderPipelineCullMode {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct RenderClear {
     pub colour: Option<String>,
     pub depth_stencil: Option<()>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct RenderDraw {
     pub vertex_buffer: Option<String>,
 }
