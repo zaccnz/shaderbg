@@ -12,7 +12,7 @@ use tao::{
 use crate::{
     app::{AppState, WindowEvent},
     gfx::{ui::Ui, Gfx, GfxContext},
-    scene::Resources,
+    scene::{Resources, Setting},
 };
 
 pub struct Window {
@@ -73,6 +73,10 @@ impl Window {
             ui,
             resources,
         }
+    }
+
+    pub fn update_setting(&mut self, key: String, value: Setting) {
+        self.resources.update_setting(key, value);
     }
 
     pub fn get_window_id(&self) -> WindowId {

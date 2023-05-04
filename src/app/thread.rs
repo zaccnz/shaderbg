@@ -1,14 +1,16 @@
-use std::time::Instant;
-
 /*
  * Window thread.  Runs the Event Loop and handles all WindowEvent messages
  */
+use std::time::Instant;
 use tao::{
     event::{Event, StartCause},
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
 
-use crate::app::{AppEvent, AppEventSender, AppState, Background, Tray, Window};
+use crate::{
+    app::{AppEvent, AppEventSender, AppState, Background, Tray, Window},
+    scene::Setting,
+};
 
 #[derive(Debug)]
 pub enum WindowEvent {
@@ -17,6 +19,7 @@ pub enum WindowEvent {
     CloseTray,
     CreateBackgroundWindow,
     CloseBackgroundWindow,
+    SettingUpdated(String, Setting),
 }
 
 enum WindowEventTarget {
@@ -164,8 +167,14 @@ impl WindowThread {
                         WindowEvent::CloseBackgroundWindow => {
                             background_window_id.take();
                         }
+                        WindowEvent::SettingUpdated(key, value) => {
+                            if let Some(mut window) = self.window.take() {
+                                window.update_setting(key, value);
+                                self.window = Some(window);
+                            }
+                        }
                     }
-                    println!("{:?}", window_event);
+                    // println!("{:?}", window_event);
                 }
                 Event::WindowEvent { window_id, .. } => {
                     let mut target = WindowEventTarget::None;

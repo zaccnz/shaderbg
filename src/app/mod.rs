@@ -12,7 +12,7 @@ use tao::{event::Event, event_loop::EventLoopProxy};
 use crate::{
     gfx::buffer::Time,
     io::{Args, Config},
-    scene::Scene,
+    scene::{Scene, Setting},
 };
 
 mod background;
@@ -36,6 +36,7 @@ pub enum AppEvent {
     BackgroundCreated(Background),
     BackgroundEvent(Event<'static, WindowEvent>),
     BackgroundClosed,
+    SettingUpdated(String, Setting),
 }
 
 #[derive(Clone, Debug)]
@@ -130,6 +131,25 @@ pub fn start_main(
                         }
                         AppEvent::EventLoopQuit => {
                             break;
+                        }
+                        AppEvent::SettingUpdated(key, setting) => {
+                            if let Ok(mut state) = state.write() {
+                                let key = key.clone();
+                                let setting = setting.clone();
+                                state.scene.settings.update(&key, setting);
+                            }
+                            proxy
+                                .send_event(WindowEvent::SettingUpdated(
+                                    key.clone(),
+                                    setting.clone(),
+                                ))
+                                .unwrap();
+
+                            if let Some(background) = background_channel.as_ref() {
+                                background
+                                    .send(BackgroundEvent::SettingUpdated(key, setting))
+                                    .unwrap();
+                            }
                         }
                     };
                 }

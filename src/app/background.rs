@@ -10,7 +10,7 @@ use tao::{
 use crate::{
     app::{AppState, WindowEvent},
     gfx::{Gfx, GfxContext},
-    scene::Resources,
+    scene::{Resources, Setting},
 };
 
 use super::AppEvent;
@@ -18,6 +18,7 @@ use super::AppEvent;
 #[derive(Debug)]
 pub enum BackgroundEvent {
     TaoEvent(Event<'static, WindowEvent>),
+    SettingUpdated(String, Setting),
 }
 
 pub struct Background {
@@ -193,6 +194,9 @@ impl Background {
                             }
                             _ => {}
                         },
+                        BackgroundEvent::SettingUpdated(key, value) => {
+                            resources.update_setting(key, value);
+                        }
                     }
                 }
                 _ => {}

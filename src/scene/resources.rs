@@ -25,6 +25,8 @@ use crate::{
     scene::Scene,
 };
 
+use super::Setting;
+
 #[derive(Debug, PartialEq)]
 enum ResourceType {
     Buffer,
@@ -112,6 +114,8 @@ pub struct Resources {
     cameras: HashMap<String, CameraResource>,
     uniforms: HashMap<String, UniformResource>,
     passes: Vec<PassResource>,
+    setting_lookup: HashMap<String, String>,
+    updated_uniforms: Vec<String>,
 }
 
 impl Resources {
@@ -131,6 +135,8 @@ impl Resources {
         let mut uniforms = HashMap::new();
 
         let mut shaders: HashMap<String, ShaderResource> = HashMap::new();
+
+        let mut setting_lookup: HashMap<String, String> = HashMap::new();
 
         // Construct builtin uniforms
         buffers.insert(
@@ -253,6 +259,7 @@ impl Resources {
                     let mut offsets = HashMap::<String, usize>::new();
 
                     for value in values {
+                        setting_lookup.insert(value.clone(), id.clone());
                         if let Some(setting) = scene.settings.get(value) {
                             let index = content.len();
                             let align_size = setting.alignment();
@@ -302,6 +309,8 @@ impl Resources {
             cameras,
             uniforms,
             passes,
+            setting_lookup,
+            updated_uniforms: Vec::new(),
         };
 
         for pass in descriptor.render_passes.iter() {
@@ -661,14 +670,56 @@ impl Resources {
         })
     }
 
-    pub fn _update_setting() {
-        todo!("Update resource func");
+    pub fn update_setting(&mut self, key: String, value: Setting) {
+        if let Some(uniform_id) = self.setting_lookup.get(&key) {
+            // update data in uniform
+            let (content, offsets) = match self.uniforms.get_mut(uniform_id) {
+                Some(uniform) => match uniform {
+                    UniformResource::Custom { content, offsets } => (content, offsets),
+                    UniformResource::Internal => {
+                        panic!("Tried to update internal uniform {}", uniform_id)
+                    }
+                },
+                None => panic!(
+                    "Setting was linked to uniform {} with no buffer.",
+                    uniform_id
+                ),
+            };
+
+            let index = match offsets.get(&key) {
+                Some(index) => *index,
+                None => panic!("Uniform {} setting {} missing index", uniform_id, key),
+            };
+            let end = index + value.size();
+            value.write(&mut content.as_mut()[index..end]);
+
+            self.updated_uniforms.push(uniform_id.clone());
+        }
     }
 
-    pub fn render(&self, queue: &Queue, view: &TextureView, encoder: &mut CommandEncoder) {
+    pub fn render(&mut self, queue: &Queue, view: &TextureView, encoder: &mut CommandEncoder) {
         if let Some(time) = self.buffers.get(&"time".to_string()) {
             let time_content = self.app_state.get().time;
             queue.write_buffer(&time.buffer, 0, bytemuck::cast_slice(&[time_content]));
+        }
+
+        for uniform_id in self.updated_uniforms.drain(..) {
+            let content = match self.uniforms.get(&uniform_id) {
+                Some(uniform) => match uniform {
+                    UniformResource::Custom { content, .. } => content,
+                    UniformResource::Internal => {
+                        panic!("Tried to update internal uniform {}", uniform_id)
+                    }
+                },
+                None => panic!("Updated uniform {} that doesn't exist.", uniform_id),
+            };
+
+            let buffer = match self.buffers.get(&uniform_id) {
+                Some(buffer) => buffer,
+                None => panic!("Updated uniform {} with no buffer.", uniform_id),
+            };
+
+            queue.write_buffer(&buffer.buffer, 0, content.as_ref());
         }
 
         for pass in self.passes.iter() {

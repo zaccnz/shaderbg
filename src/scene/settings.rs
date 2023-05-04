@@ -9,6 +9,7 @@ pub enum SettingParseError {
     InvalidHex(ParseHexColorError),
 }
 
+#[derive(Clone, Debug)]
 pub enum Setting {
     Float(f32),
     Colour3([f32; 3]),

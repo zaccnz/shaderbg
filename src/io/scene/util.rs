@@ -6,6 +6,7 @@ use std::{
 };
 use toml::map::Map;
 
+#[derive(Clone)]
 pub struct DeserializableMap<T> {
     data: HashMap<String, T>,
 }

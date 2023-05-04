@@ -10,6 +10,9 @@ use crate::{
     ext::{self, imgui_tao_support::TaoPlatform},
 };
 
+mod scene;
+use scene::*;
+
 pub struct Ui {
     imgui: Context,
     renderer: Renderer,
@@ -19,6 +22,7 @@ pub struct Ui {
     last_frame: Instant,
     demo_open: bool,
     last_cursor: Option<MouseCursor>,
+    scene_ui: SceneUi,
 }
 
 impl Ui {
@@ -58,6 +62,8 @@ impl Ui {
 
         let renderer = Renderer::new(&mut imgui, &device, &queue, renderer_config);
 
+        let scene_ui = SceneUi::new(app_state.clone());
+
         Ui {
             imgui,
             renderer,
@@ -66,6 +72,7 @@ impl Ui {
             last_frame: Instant::now(),
             demo_open: false,
             last_cursor: None,
+            scene_ui,
         }
     }
 
@@ -122,16 +129,12 @@ impl Ui {
                     }
                 });
 
-            /*
-            if let Some(scene) = scene {
-                let window = ui.window("Scene Settings");
-                window
-                    .size([300.0, 400.0], Condition::FirstUseEver)
-                    .build(|| {
-                        ui.text("WIP");
-                        //scene.ui(ui);
-                    });
-            }*/
+            let window = ui.window("Scene Settings");
+            window
+                .size([300.0, 400.0], Condition::FirstUseEver)
+                .build(|| {
+                    self.scene_ui.render(ui);
+                });
 
             if self.demo_open {
                 ui.show_demo_window(&mut self.demo_open);
