@@ -17,6 +17,7 @@ use util::*;
 pub struct Descriptor {
     pub meta: Metadata,
     pub settings: DeserializableMap<Setting>,
+    pub ui: Vec<Ui>,
     pub resources: DeserializableMap<Resource>,
     pub render_passes: Vec<RenderPass>,
 }
@@ -27,4 +28,12 @@ pub struct Metadata {
     pub version: String,
     pub description: String,
     pub author: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "type")]
+pub enum Ui {
+    Setting { setting: String },
+    Separator,
+    Text { text: String },
 }

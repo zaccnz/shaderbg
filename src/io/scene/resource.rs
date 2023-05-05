@@ -13,9 +13,10 @@ use wgpu::{BufferAddress, VertexAttribute, VertexBufferLayout, VertexFormat, Ver
 pub enum Resource {
     Buffer {
         label: Option<String>,
-        size: usize,
+        size: Option<usize>,
         storage: Option<BufferStorage>,
         vertex: Option<BufferVertex>,
+        vertices: Option<Vec<Vec<f32>>>,
     },
     Camera {
         projection: CameraProjection,
@@ -26,6 +27,8 @@ pub enum Resource {
         src: String,
         label: Option<String>,
         main: Option<String>,
+        format: Option<ShaderFormat>,
+        stage: Option<ShaderStage>,
         vertex_main: Option<String>,
         fragment_main: Option<String>,
     },
@@ -120,12 +123,14 @@ impl BufferVertexAttribute {
 
 #[derive(Clone, Debug, Deserialize)]
 pub enum BufferVertexAttributeFormat {
+    Float32x2,
     Float32x3,
 }
 
 impl BufferVertexAttributeFormat {
     pub fn as_wgpu(&self) -> VertexFormat {
         match self {
+            Self::Float32x2 => VertexFormat::Float32x2,
             Self::Float32x3 => VertexFormat::Float32x3,
         }
     }
@@ -136,4 +141,30 @@ impl BufferVertexAttributeFormat {
 pub enum CameraProjection {
     Perspective,
     Orthographic,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ShaderFormat {
+    Wgsl,
+    Glsl,
+    Spirv,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ShaderStage {
+    Vertex,
+    Fragment,
+    Compute,
+}
+
+impl ShaderStage {
+    pub fn as_wgpu(&self) -> naga::ShaderStage {
+        match self {
+            ShaderStage::Vertex => naga::ShaderStage::Vertex,
+            ShaderStage::Fragment => naga::ShaderStage::Fragment,
+            ShaderStage::Compute => naga::ShaderStage::Compute,
+        }
+    }
 }

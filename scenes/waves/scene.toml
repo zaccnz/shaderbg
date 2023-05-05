@@ -4,7 +4,7 @@
 name = "Waves"
 version = "1.0"
 description = "Polygon waves to help you relax.  A rewrite of vanta.waves.js from Vanta.js"
-author = "Teng Bao - waves.vanta.js, Zac - shaderbg port"
+author = "Teng Bao - vanta.waves.js, Zac - shaderbg port"
 
 [settings]
   [settings.wave_size]
@@ -39,6 +39,30 @@ author = "Teng Bao - waves.vanta.js, Zac - shaderbg port"
   type = "colour3"
   label = "Colour"
   value = "#005487"
+
+[[ui]]
+type = "text"
+text = "Wave Colour"
+[[ui]]
+type = "setting"
+setting = "wave_colour"
+[[ui]]
+type = "separator"
+[[ui]]
+type = "text"
+text = "Wave Parameters"
+[[ui]]
+type = "setting"
+setting = "wave_size"
+[[ui]]
+type = "setting"
+setting = "wave_height"
+[[ui]]
+type = "setting"
+setting = "wave_speed"
+[[ui]]
+type = "setting"
+setting = "wave_noise"
 
 # [assets]
 # these are resources such as textures or meshes

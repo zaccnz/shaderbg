@@ -4,7 +4,7 @@
  */
 
 use cgmath::Point3;
-use std::{borrow::Cow, collections::HashMap, ops::Deref, str::Utf8Error};
+use std::{borrow::Cow, collections::HashMap, mem, ops::Deref, str::Utf8Error};
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
@@ -12,7 +12,7 @@ use wgpu::{
     BufferDescriptor, BufferUsages, ColorTargetState, ColorWrites, CommandEncoder, ComputePipeline,
     ComputePipelineDescriptor, Device, FragmentState, PipelineLayoutDescriptor, PrimitiveState,
     Queue, RenderPipeline, RenderPipelineDescriptor, ShaderModule, ShaderModuleDescriptor,
-    SurfaceConfiguration, TextureView, VertexState,
+    SurfaceConfiguration, TextureView, VertexAttribute, VertexBufferLayout, VertexState,
 };
 
 use crate::{
@@ -20,7 +20,10 @@ use crate::{
     gfx::{buffer::CameraMatrix, camera::Camera},
     io::scene::{
         pass::{RenderClear, RenderDraw, RenderPass, RenderPipelineBindingVisibility},
-        resource::{BufferStorage, BufferStorageType, BufferVertex, Resource},
+        resource::{
+            BufferStorage, BufferStorageType, BufferVertex, BufferVertexAttribute,
+            BufferVertexAttributeFormat, BufferVertexStep, Resource, ShaderFormat,
+        },
     },
     scene::Scene,
 };
@@ -39,7 +42,7 @@ enum ResourceType {
 struct BufferResource {
     buffer: Buffer,
     vertex: Option<BufferVertex>,
-    vertex_count: Option<usize>,
+    vertex_count: Option<u32>,
     storage: Option<BufferStorage>,
 }
 
@@ -161,28 +164,91 @@ impl Resources {
                     size,
                     storage,
                     vertex,
+                    vertices,
                 } => {
+                    let mut vertex = vertex.clone();
                     let mut usage = BufferUsages::empty();
                     if storage.is_some() {
                         usage |= BufferUsages::STORAGE;
                     }
-                    if vertex.is_some() {
+                    if vertex.is_some() || vertices.is_some() {
                         usage |= BufferUsages::VERTEX;
                     }
 
-                    let buffer = device.create_buffer(&BufferDescriptor {
-                        label: label.clone().as_deref(),
-                        size: *size as BufferAddress,
-                        usage,
-                        mapped_at_creation: false,
-                    });
+                    let size = if let Some(size) = size {
+                        *size
+                    } else if let Some(vertices) = vertices {
+                        if vertices.len() == 0 {
+                            return Err(ResourceError::InvalidResource {
+                                id: id.clone(),
+                                reason: "Vertices must not be empty".to_string(),
+                            });
+                        }
+
+                        let lengths: Vec<usize> =
+                            vertices.iter().map(|vertex| vertex.len()).collect();
+                        let length = lengths[0];
+                        if !lengths.iter().all(|len| *len == length) {
+                            return Err(ResourceError::InvalidResource {
+                                id: id.clone(),
+                                reason: "Vertices must all be the same size".to_string(),
+                            });
+                        }
+
+                        vertex = Some(BufferVertex {
+                            stride: length * mem::size_of::<f32>(),
+                            step: Some(BufferVertexStep::Vertex),
+                            attributes: vec![BufferVertexAttribute {
+                                offset: 0,
+                                location: 0,
+                                format: BufferVertexAttributeFormat::Float32x2,
+                            }],
+                        });
+
+                        vertices.len() * length * mem::size_of::<f32>()
+                    } else {
+                        return Err(ResourceError::InvalidResource {
+                            id: id.clone(),
+                            reason: "Buffer has neither size nor content".to_string(),
+                        });
+                    };
+
+                    let buffer = if let Some(vertices) = vertices {
+                        let mut contents = Vec::<u8>::new();
+
+                        let length = vertices.len();
+                        let size = vertices[0].len();
+
+                        for i in 0..length {
+                            for j in 0..size {
+                                let bytes = bytemuck::bytes_of(&vertices[i][j]);
+
+                                for k in 0..4 {
+                                    contents.push(bytes[k]);
+                                }
+                            }
+                        }
+
+                        device.create_buffer_init(&BufferInitDescriptor {
+                            label: label.clone().as_deref(),
+                            contents: contents.as_slice(),
+                            usage,
+                        })
+                    } else {
+                        device.create_buffer(&BufferDescriptor {
+                            label: label.clone().as_deref(),
+                            size: size as BufferAddress,
+                            usage,
+                            mapped_at_creation: false,
+                        })
+                    };
 
                     buffers.insert(
                         id.clone(),
                         BufferResource {
                             buffer,
                             vertex: vertex.clone(),
-                            vertex_count: vertex.as_ref().map(|v| size / v.stride),
+                            vertex_count: vertex.as_ref().map(|v| (size / v.stride) as u32),
                             storage: storage.clone(),
                         },
                     );
@@ -225,6 +291,8 @@ impl Resources {
                     main,
                     vertex_main,
                     fragment_main,
+                    format,
+                    stage,
                     ..
                 } => {
                     let shader_source = scene
@@ -237,12 +305,23 @@ impl Resources {
                         Err(error) => return Err(ResourceError::InvalidShaderUtf8(error)),
                     };
 
-                    let module = device.create_shader_module(ShaderModuleDescriptor {
-                        label: label.as_deref(),
-                        source: wgpu::ShaderSource::Wgsl(Cow::Owned(
-                            shader_source_string.to_string(),
-                        )),
-                    });
+                    let module = match format.as_ref().unwrap_or(&ShaderFormat::Wgsl) {
+                        ShaderFormat::Wgsl => device.create_shader_module(ShaderModuleDescriptor {
+                            label: label.as_deref(),
+                            source: wgpu::ShaderSource::Wgsl(Cow::Owned(
+                                shader_source_string.to_string(),
+                            )),
+                        }),
+                        ShaderFormat::Glsl => device.create_shader_module(ShaderModuleDescriptor {
+                            label: label.as_deref(),
+                            source: wgpu::ShaderSource::Glsl {
+                                shader: Cow::Owned(shader_source_string.to_string()),
+                                stage: stage.as_ref().unwrap().as_wgpu(),
+                                defines: Default::default(),
+                            },
+                        }),
+                        _ => todo!("unimplemented shader format {:?}", format.as_ref().unwrap()),
+                    };
 
                     shaders.insert(
                         id.clone(),
@@ -258,11 +337,34 @@ impl Resources {
                     let mut content = Vec::<u8>::new();
                     let mut offsets = HashMap::<String, usize>::new();
 
+                    let align_size = values
+                        .iter()
+                        .map(|value| {
+                            if let Some(setting) = scene.settings.get(value) {
+                                Ok(setting.alignment())
+                            } else {
+                                Err(ResourceError::MissingSetting { id: value.clone() })
+                            }
+                        })
+                        .collect::<Result<Vec<usize>, ResourceError>>()?
+                        .iter()
+                        .max()
+                        .map(|v| *v);
+
+                    let align_size = if let Some(align_size) = align_size {
+                        align_size
+                    } else {
+                        return Err(ResourceError::InvalidResource {
+                            id: id.clone(),
+                            reason: "Error finding the largest alignment of uniform values"
+                                .to_string(),
+                        });
+                    };
+
                     for value in values {
                         setting_lookup.insert(value.clone(), id.clone());
                         if let Some(setting) = scene.settings.get(value) {
                             let index = content.len();
-                            let align_size = setting.alignment();
 
                             for _ in 0..align_size {
                                 content.push(0);
@@ -619,7 +721,13 @@ impl Resources {
             write_mask: ColorWrites::ALL,
         })];
 
-        let attributes = pipeline.vertex.attributes();
+        let mut attributes = Vec::<VertexAttribute>::new();
+        let mut buffers = Vec::<VertexBufferLayout>::new();
+
+        if let Some(vertex) = pipeline.vertex.as_ref() {
+            attributes.extend(vertex.attributes().iter());
+            buffers.push(vertex.desc(attributes.as_slice()));
+        }
 
         let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
             label: label.as_deref(),
@@ -628,7 +736,7 @@ impl Resources {
             vertex: VertexState {
                 module: &shader,
                 entry_point: vertex_entry.deref(),
-                buffers: &[pipeline.vertex.desc(&attributes.as_slice())],
+                buffers: buffers.as_slice(),
             },
             fragment: if fragment_module_and_entry.is_some() {
                 let (module, entry) = fragment_module_and_entry.as_ref().unwrap();
@@ -773,19 +881,19 @@ impl Resources {
 
                     rpass.set_pipeline(pipeline);
                     for draw in draw {
-                        let vertex_buffer = self
-                            .buffers
-                            .get(draw.vertex_buffer.as_ref().unwrap())
-                            .unwrap();
                         rpass.set_bind_group(0, bind_group, &[]);
-                        rpass.set_vertex_buffer(0, vertex_buffer.buffer.slice(..));
-                        rpass.draw(
-                            0..(vertex_buffer
+                        let mut vertices = draw.vertex_count.unwrap_or(6);
+                        let instances = draw.instances.unwrap_or(1);
+
+                        if let Some(vertex_buffer) = draw.vertex_buffer.as_ref() {
+                            let vertex_buffer = self.buffers.get(vertex_buffer).unwrap();
+                            rpass.set_vertex_buffer(0, vertex_buffer.buffer.slice(..));
+                            vertices = vertex_buffer
                                 .vertex_count
-                                .expect("Vertex buffer has no vertex count"))
-                                as _,
-                            0..1,
-                        );
+                                .expect("Vertex buffer has no vertex count");
+                        }
+
+                        rpass.draw(0..vertices, 0..instances);
                     }
 
                     drop(rpass);

@@ -35,7 +35,7 @@ pub struct RenderPipeline {
     pub polygon_mode: RenderPipelinePolygonMode,
     pub front_face: RenderPipelineFrontFace,
     pub cull_mode: RenderPipelineCullMode,
-    pub vertex: BufferVertex,
+    pub vertex: Option<BufferVertex>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -138,4 +138,7 @@ pub struct RenderClear {
 #[derive(Clone, Debug, Deserialize)]
 pub struct RenderDraw {
     pub vertex_buffer: Option<String>,
+    pub vertex_count: Option<u32>,
+    // pub index_buffer: Option<String>,
+    pub instances: Option<u32>,
 }
