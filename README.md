@@ -1,7 +1,7 @@
 # 🖼️ shaderbg
 
-<p style="text-align: center;">
-    <img src="repo/demo.gif" alt="A demo of shaderbg, showing the Waves scene">
+<p align="center">
+    <img src="repo/demo.gif" alt="A demo of shaderbg, showing the Waves scene"><br>
     <em>waves demo scene</em> (ported from <a href="https://github.com/tengbao/vanta/blob/master/src/vanta.waves.js">Vanta.js</a>)
 </p>
 
