@@ -1,10 +1,23 @@
 # 🖼️ shaderbg
 
-(demo screenshot here)
+<p style="text-align: center;">
+    <img src="repo/demo.gif" alt="A demo of shaderbg, showing the Waves scene">
+    <em>waves demo scene</em> (ported from <a href="https://github.com/tengbao/vanta/blob/master/src/vanta.waves.js">Vanta.js</a>)
+</p>
 
 lightweight animated backgrounds.  
 built to be cross-platform (Windows, macOS, Linux) using Rust.  
-check it out at [zaccnz.github.io/shaderbg](https://zaccnz.github.io/shaderbg)  
+<!-- check it out at [zaccnz.github.io/shaderbg](https://zaccnz.github.io/shaderbg) -->
+
+### note: still in development!
+
+### features
+- not a web browser!
+- cross platform
+  - only macOS at the moment, Windows eta July
+- lightweight
+- portable
+- free and open source
 
 ### dependencies
 
@@ -15,6 +28,12 @@ check it out at [zaccnz.github.io/shaderbg](https://zaccnz.github.io/shaderbg)
 - [cgmath](https://crates.io/crates/cgmath) = "0.18"
 - [env_logger](https://crates.io/crates/env_logger/) = "0.10.0", [image](https://crates.io/crates/image/) = "0.24.6", [pollster](https://crates.io/crates/pollster/) = "0.3.0", [clap](https://crates.io/crates/clap) = "4.2.4, [chrono](https://crates.io/crates/chrono) = "0.4.24", [serde](https://crates.io/crates/serde) = "1.0", [toml](https://crates.io/crates/toml) = "0.7.3", [bytemuck](https://crates.io/crates/bytemuck) = "1.12", [rand](https://crates.io/crates/rand) = "0.8.5", [hex_color](https://crates.io/crates/hex_color) = "2.0.0", [naga](https://crates.io/crates/naga) = "0.11.0"
 - **macOS dependencies** [cocoa](https://crates.io/crates/cocoa) = "0.24", [objc](https://crates.io/crates/objc) = "0.2.2"
+
+### build instructions
+
+``` sh
+cargo run
+```
 
 ### resources
 
