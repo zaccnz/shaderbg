@@ -2484,10 +2484,13 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "cocoa",
+ "egui",
  "env_logger",
  "image",
+ "log",
  "objc",
  "pollster",
+ "raw-window-handle",
  "shaderbg-render",
  "tao",
 ]

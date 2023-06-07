@@ -10,7 +10,7 @@ use crate::{
         setting::Setting as SettingDescriptor, util::DeserializableMap, Descriptor,
         Ui as UiDescriptor,
     },
-    scene::Setting,
+    scene::{Setting, Settings},
 };
 
 enum SceneUiElement {
@@ -86,7 +86,7 @@ impl Scene {
     pub fn render(
         &mut self,
         ui: &mut egui::Ui,
-        scene: &crate::scene::Scene,
+        scene_settings: Settings,
         changes: &mut Vec<(String, Setting)>,
     ) -> bool {
         let mut open = true;
@@ -102,7 +102,7 @@ impl Scene {
                                 let change = match setting {
                                     SettingDescriptor::Colour3 { label, .. } => {
                                         let value = {
-                                            match scene.settings.get(key).unwrap() {
+                                            match scene_settings.get(key).unwrap() {
                                                 Setting::Colour3(value) => {
                                                     [value[0], value[1], value[2]]
                                                 }
@@ -116,7 +116,7 @@ impl Scene {
                                         label, min, max, ..
                                     } => {
                                         let value = {
-                                            match scene.settings.get(key).unwrap() {
+                                            match scene_settings.get(key).unwrap() {
                                                 Setting::Float(value) => *value,
                                                 _ => panic!("Setting type mismatch in Ui"),
                                             }

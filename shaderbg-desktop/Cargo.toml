@@ -7,11 +7,14 @@ edition = "2021"
 
 [dependencies]
 shaderbg-render = { version = "0.1.0", path="../shaderbg-render"}
+egui = {workspace = true}
 tao = { version = "0.19.0", features = ["tray"] }
 clap = { workspace = true }
 env_logger = "0.10.0"
 image = "0.24.6"
 pollster = { workspace = true }
+raw-window-handle = { workspace = true }
+log = { workspace = true }
 
 [target."cfg(target_os = \"macos\")".dependencies]
 cocoa = "0.24"

@@ -221,7 +221,8 @@ async fn run() {
                             .open(&mut open)
                             .resizable(false)
                             .show(ctx, |ui| {
-                                settings_open = scene_ui.render(ui, &scene, &mut changes);
+                                settings_open =
+                                    scene_ui.render(ui, scene.settings.clone(), &mut changes);
                             });
 
                         settings_open &= open;

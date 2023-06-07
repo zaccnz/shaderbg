@@ -199,18 +199,18 @@ impl WindowThread {
                     }
                 }
                 Event::MainEventsCleared => {
-                    let now = Instant::now();
-                    app_state
-                        .send(AppEvent::Update((now - last_frame).as_secs_f64()))
-                        .unwrap();
-                    last_frame = now;
-
                     self.handle_window_event(event, event_loop, control_flow);
                     if background_window_id.is_some() {
                         app_state
                             .send(AppEvent::BackgroundEvent(Event::MainEventsCleared))
                             .unwrap();
                     }
+
+                    let now = Instant::now();
+                    app_state
+                        .send(AppEvent::Update((now - last_frame).as_secs_f64()))
+                        .unwrap();
+                    last_frame = now;
                 }
                 Event::MenuEvent { .. } | Event::TrayEvent { .. } => {
                     self.handle_tray_event(event, event_loop, control_flow)

@@ -12,3 +12,4 @@ egui = "0.22.0"
 clap = { version = "4.2.4", features = ["derive"] }
 log = "0.4"
 pollster = "0.3.0"
+raw-window-handle = "0.5"

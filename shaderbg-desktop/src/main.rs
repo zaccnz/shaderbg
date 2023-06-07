@@ -11,6 +11,7 @@ use shaderbg_render::{io, scene::Scene};
 extern crate objc;
 
 mod app;
+pub mod egui_tao;
 
 fn main() {
     env_logger::init();
