@@ -2,16 +2,16 @@
  * Main window
  */
 use tao::{
-    dpi::LogicalSize,
+    dpi::{LogicalSize, PhysicalSize},
     event::{Event, WindowEvent as TaoWindowEvent},
     event_loop::{ControlFlow, EventLoopWindowTarget},
     keyboard::KeyCode,
     window::{Window as TaoWindow, WindowBuilder, WindowId},
 };
 
-use crate::{
-    app::{AppState, WindowEvent},
-    gfx::{ui::Ui, Gfx, GfxContext},
+use crate::app::{AppState, WindowEvent};
+use shaderbg_render::{
+    gfx::{Gfx, GfxContext},
     scene::{Resources, Setting},
 };
 
@@ -20,7 +20,7 @@ pub struct Window {
     gfx: Gfx,
     #[allow(dead_code)]
     app_state: AppState,
-    ui: Ui,
+    // ui: Ui,
     resources: Resources,
 }
 
@@ -45,10 +45,11 @@ impl Window {
 
         let gfx_context = GfxContext::new(&window);
 
-        let gfx = Gfx::new(gfx_context, &window);
+        let size = window.inner_size();
+        let gfx = pollster::block_on(Gfx::new(gfx_context, size.width, size.height));
 
         // let scene = Scene::new(app_state.clone(), &gfx.device, &gfx.config);
-
+        /*
         let ui = Ui::new(
             &window,
             &gfx.device,
@@ -57,12 +58,13 @@ impl Window {
             gfx.config.format,
             app_state.clone(),
         );
+        */
 
         let resources = Resources::new(
-            app_state.clone(),
             &app_state.get().scene,
             &gfx.device,
             &gfx.config,
+            app_state.get().time,
         )
         .unwrap();
 
@@ -70,7 +72,6 @@ impl Window {
             window,
             gfx,
             app_state,
-            ui,
             resources,
         }
     }
@@ -92,10 +93,20 @@ impl Window {
                 return false;
             }
             Event::WindowEvent {
-                event: TaoWindowEvent::Resized(_) | TaoWindowEvent::ScaleFactorChanged { .. },
+                event: TaoWindowEvent::Resized(PhysicalSize { width, height }),
                 ..
             } => {
-                self.gfx.resized(&self.window);
+                self.gfx.resized(width, height);
+            }
+            Event::WindowEvent {
+                event:
+                    TaoWindowEvent::ScaleFactorChanged {
+                        new_inner_size: PhysicalSize { width, height },
+                        ..
+                    },
+                ..
+            } => {
+                self.gfx.resized(*width, *height);
             }
             Event::WindowEvent {
                 event:
@@ -113,14 +124,16 @@ impl Window {
             }
             Event::MainEventsCleared => self.window.request_redraw(),
             Event::RedrawEventsCleared => {
-                self.gfx
-                    .render(&self.window, Some(&mut self.resources), Some(&mut self.ui));
+                self.gfx.render(
+                    Some(&mut self.resources),
+                    self.app_state.get().time, /*Some(&mut self.ui)*/
+                );
             }
             _ => (),
         }
 
-        self.gfx
-            .handle_event(&self.window, &event, Some(&mut self.ui));
+        //self.gfx
+        //    .handle_event(&self.window, &event, Some(&mut self.ui));
         true
     }
 

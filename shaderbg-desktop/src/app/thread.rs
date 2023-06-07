@@ -7,10 +7,8 @@ use tao::{
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
 
-use crate::{
-    app::{AppEvent, AppEventSender, AppState, Background, Tray, Window},
-    scene::Setting,
-};
+use crate::app::{AppEvent, AppEventSender, AppState, Background, Tray, Window};
+use shaderbg_render::scene::Setting;
 
 #[derive(Debug)]
 pub enum WindowEvent {
@@ -113,19 +111,6 @@ impl WindowThread {
                         }
                     }
                     app_state.send(AppEvent::EventLoopReady).unwrap();
-
-                    /*
-                    let background = WindowBuilder::new()
-                        .with_title("shaderbg background")
-                        .build(event_loop)
-                        .unwrap();
-
-                    std::thread::spawn(move || {
-                        background.set_title("shaderbg background (in other thread)");
-
-                        loop {}
-                    });
-                    */
                 }
                 Event::LoopDestroyed => {
                     println!("Loop Destroyed");

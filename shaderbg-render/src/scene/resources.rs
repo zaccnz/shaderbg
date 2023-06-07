@@ -16,8 +16,10 @@ use wgpu::{
 };
 
 use crate::{
-    app::AppState,
-    gfx::{buffer::CameraMatrix, camera::Camera},
+    gfx::{
+        buffer::{CameraMatrix, Time},
+        camera::Camera,
+    },
     io::scene::{
         pass::{RenderClear, RenderDraw, RenderPass, RenderPipelineBindingVisibility},
         resource::{
@@ -64,6 +66,7 @@ enum PassResource {
         label: Option<String>,
         pipeline: RenderPipeline,
         bind_group: BindGroup,
+        #[allow(dead_code)]
         clear: Option<RenderClear>,
         draw: Vec<RenderDraw>,
     },
@@ -112,7 +115,6 @@ enum ShaderEntrypointType {
 }
 
 pub struct Resources {
-    app_state: AppState,
     buffers: HashMap<String, BufferResource>,
     cameras: HashMap<String, CameraResource>,
     uniforms: HashMap<String, UniformResource>,
@@ -124,10 +126,10 @@ pub struct Resources {
 impl Resources {
     #[allow(dead_code)]
     pub fn new(
-        app_state: AppState,
         scene: &Scene,
         device: &Device,
         config: &SurfaceConfiguration,
+        time: Time,
     ) -> Result<Resources, ResourceError> {
         let descriptor = &scene.descriptor;
 
@@ -147,7 +149,7 @@ impl Resources {
             BufferResource {
                 buffer: device.create_buffer_init(&BufferInitDescriptor {
                     label: Some("Time Uniform"),
-                    contents: bytemuck::cast_slice(&[app_state.get().time]),
+                    contents: bytemuck::cast_slice(&[time]),
                     usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
                 }),
                 vertex: None,
@@ -406,7 +408,6 @@ impl Resources {
         }
 
         let mut resources = Resources {
-            app_state,
             buffers,
             cameras,
             uniforms,
@@ -805,10 +806,15 @@ impl Resources {
         }
     }
 
-    pub fn render(&mut self, queue: &Queue, view: &TextureView, encoder: &mut CommandEncoder) {
-        if let Some(time) = self.buffers.get(&"time".to_string()) {
-            let time_content = self.app_state.get().time;
-            queue.write_buffer(&time.buffer, 0, bytemuck::cast_slice(&[time_content]));
+    pub fn render(
+        &mut self,
+        queue: &Queue,
+        view: &TextureView,
+        encoder: &mut CommandEncoder,
+        time: Time,
+    ) {
+        if let Some(time_buffer) = self.buffers.get(&"time".to_string()) {
+            queue.write_buffer(&time_buffer.buffer, 0, bytemuck::cast_slice(&[time]));
         }
 
         for uniform_id in self.updated_uniforms.drain(..) {

@@ -90,7 +90,7 @@ setting = "wave_noise"
   [resources.compute_shader]
   type = "shader"
   label = "Compute Shader"
-  src = "vertex.wgsl"
+  src = "vertices.wgsl"
   main = "main"
   
   [resources.compute_params]

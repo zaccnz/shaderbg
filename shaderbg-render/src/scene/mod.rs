@@ -86,4 +86,55 @@ impl Scene {
             settings,
         })
     }
+
+    pub fn load_from_memory(
+        scene_toml: Vec<u8>,
+        files: HashMap<String, Vec<u8>>,
+    ) -> Result<Scene, SceneError> {
+        let toml_string = match std::str::from_utf8(scene_toml.as_slice()) {
+            Ok(string) => string,
+            Err(error) => {
+                return Err(SceneError::SceneTomlError(io::Error::new(
+                    io::ErrorKind::Other,
+                    error,
+                )))
+            }
+        };
+
+        let descriptor: Descriptor = match toml::from_str(toml_string) {
+            Ok(descriptor) => descriptor,
+            Err(error) => {
+                return Err(SceneError::SceneTomlError(io::Error::new(
+                    io::ErrorKind::Other,
+                    error,
+                )))
+            }
+        };
+
+        for (id, resource) in descriptor.resources.iter() {
+            match resource {
+                Resource::Shader { .. } => {
+                    if !files.contains_key(id) {
+                        return Err(SceneError::InvalidResource {
+                            kind: "Shader".to_string(),
+                            id: id.clone(),
+                            error: "file not provided".to_string(),
+                        });
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let settings = match Settings::new(&descriptor) {
+            Ok(settings) => settings,
+            Err(error) => return Err(SceneError::SettingsError(error)),
+        };
+
+        Ok(Scene {
+            descriptor,
+            files,
+            settings,
+        })
+    }
 }

@@ -1,12 +1,12 @@
-use pollster::block_on;
-use tao::{dpi::PhysicalSize, event::Event, window::Window};
 use wgpu::{Device, Instance, Queue, Surface, SurfaceConfiguration};
 
-use crate::{gfx::ui::Ui, scene::Resources};
+use crate::scene::Resources;
+use log::info;
+
+use self::buffer::Time;
 
 pub mod buffer;
 pub mod camera;
-pub mod ui;
 
 // because we cannot create a surface on second thread,
 // we create a context on the main thread which is used
@@ -17,11 +17,16 @@ pub struct GfxContext {
 }
 
 impl GfxContext {
-    pub fn new(window: &Window) -> GfxContext {
+    pub fn new<W>(window: &W) -> GfxContext
+    where
+        W: raw_window_handle::HasRawWindowHandle + raw_window_handle::HasRawDisplayHandle,
+    {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::PRIMARY,
+            backends: wgpu::Backends::all(),
             ..Default::default()
         });
+
+        info!("{:#?}", instance);
 
         // TODO: windows - use HWND of background process
         // https://stackoverflow.com/questions/56132584/draw-on-windows-10-wallpaper-in-c
@@ -38,41 +43,39 @@ pub struct Gfx {
     surface: Surface,
     pub device: Device,
     pub queue: Queue,
-    size: PhysicalSize<u32>,
-    pub hidpi_factor: f64,
 }
 
 impl Gfx {
-    pub fn new(context: GfxContext, window: &Window) -> Gfx {
+    pub async fn new(context: GfxContext, width: u32, height: u32) -> Gfx {
         let instance = context.instance;
         let surface = context.surface;
 
-        let hidpi_factor = window.scale_factor();
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::default(),
+                compatible_surface: Some(&surface),
+                force_fallback_adapter: false,
+            })
+            .await
+            .unwrap();
 
-        let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
-            compatible_surface: Some(&surface),
-            force_fallback_adapter: false,
-        }))
-        .unwrap();
-
-        let (device, queue) = block_on(adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                features: wgpu::DeviceDescriptor::default().features
-                    | wgpu::Features::POLYGON_MODE_LINE,
-                ..Default::default()
-            },
-            None,
-        ))
-        .unwrap();
-
-        let size = window.inner_size();
+        let (device, queue) = adapter
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    /*features: wgpu::DeviceDescriptor::default().features
+                    | wgpu::Features::POLYGON_MODE_LINE,*/
+                    ..Default::default()
+                },
+                None,
+            )
+            .await
+            .unwrap();
 
         let surface_desc = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: wgpu::TextureFormat::Bgra8UnormSrgb,
-            width: size.width,
-            height: size.height,
+            format: wgpu::TextureFormat::Bgra8Unorm,
+            width: width,
+            height: height,
             present_mode: wgpu::PresentMode::Fifo,
             alpha_mode: wgpu::CompositeAlphaMode::Auto,
             view_formats: vec![wgpu::TextureFormat::Bgra8Unorm],
@@ -85,21 +88,17 @@ impl Gfx {
             surface,
             device,
             queue,
-            size,
-            hidpi_factor,
         }
     }
 
-    pub fn resized(&mut self, window: &Window) {
-        self.size = window.inner_size();
-
-        self.config.width = self.size.width;
-        self.config.height = self.size.height;
+    pub fn resized(&mut self, width: u32, height: u32) {
+        self.config.width = width;
+        self.config.height = height;
 
         self.surface.configure(&self.device, &self.config);
     }
 
-    pub fn render(&mut self, window: &Window, scene: Option<&mut Resources>, ui: Option<&mut Ui>) {
+    pub fn render(&mut self, scene: Option<&mut Resources>, time: Time) {
         let frame = match self.surface.get_current_texture() {
             Ok(frame) => frame,
             Err(e) => {
@@ -117,26 +116,11 @@ impl Gfx {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
         if let Some(scene) = scene {
-            scene.render(&self.queue, &view, &mut encoder);
-        }
-
-        if let Some(ui) = ui {
-            ui.render(window, &self.queue, &self.device, &view, &mut encoder);
+            scene.render(&self.queue, &view, &mut encoder, time);
         }
 
         self.queue.submit(Some(encoder.finish()));
 
         frame.present();
-    }
-
-    pub fn handle_event(
-        &mut self,
-        window: &Window,
-        event: &Event<crate::app::WindowEvent>,
-        ui: Option<&mut Ui>,
-    ) {
-        if let Some(ui) = ui {
-            ui.handle_event(window, event);
-        }
     }
 }
