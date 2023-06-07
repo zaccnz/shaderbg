@@ -2,7 +2,7 @@
 resolver = "2"
 
 members = [
-    "shaderbg-desktop",
+    "shaderbg",
     "shaderbg-render",
     "shaderbg-web"
 ]

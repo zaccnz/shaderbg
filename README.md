@@ -27,7 +27,7 @@ built to be cross-platform (Windows, macOS, Linux) using Rust.
 | name               | use                               |
 |--------------------|-----------------------------------|
 | `shaderbg-render`  | library to load and render scenes |
-| `shaderbg-desktop` | shaderbg application              |
+| `shaderbg`         | shaderbg application              |
 | `shaderbg-web`     | web demo build                    |
 
 ### dependencies

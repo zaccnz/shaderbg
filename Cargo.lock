@@ -2479,7 +2479,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "shaderbg-desktop"
+name = "shaderbg"
 version = "0.1.0"
 dependencies = [
  "clap",
