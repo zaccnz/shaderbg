@@ -7,6 +7,8 @@ edition = "2021"
 
 [dependencies]
 wgpu = { version = "0.16.1", features = ["glsl"] }
+egui = {workspace = true }
+egui-wgpu = "0.22.0"
 cgmath = "0.18"
 clap = { workspace = true }
 chrono = { version = "0.4.24", features = ["serde"] }

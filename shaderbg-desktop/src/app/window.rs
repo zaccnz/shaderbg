@@ -46,7 +46,7 @@ impl Window {
         let gfx_context = GfxContext::new(&window);
 
         let size = window.inner_size();
-        let gfx = pollster::block_on(Gfx::new(gfx_context, size.width, size.height));
+        let gfx = pollster::block_on(Gfx::new(gfx_context, size.width, size.height, false));
 
         // let scene = Scene::new(app_state.clone(), &gfx.device, &gfx.config);
         /*
@@ -126,7 +126,9 @@ impl Window {
             Event::RedrawEventsCleared => {
                 self.gfx.render(
                     Some(&mut self.resources),
-                    self.app_state.get().time, /*Some(&mut self.ui)*/
+                    self.app_state.get().time,
+                    None,
+                    |_| {},
                 );
             }
             _ => (),

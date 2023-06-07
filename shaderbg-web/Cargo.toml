@@ -11,7 +11,8 @@ winit = "0.28.6"
 getrandom = { version = "0.2", features = ["js"] }
 log = { workspace = true }
 web-time = "0.2.0"
-
+egui = { workspace = true }
+egui-winit = { version = "0.22.0", default-features=false, features = ["links", "wayland"] }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 pollster = { workspace = true }

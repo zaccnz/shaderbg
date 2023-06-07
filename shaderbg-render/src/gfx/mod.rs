@@ -7,6 +7,8 @@ use self::buffer::Time;
 
 pub mod buffer;
 pub mod camera;
+pub mod ui;
+pub use ui::Ui;
 
 // because we cannot create a surface on second thread,
 // we create a context on the main thread which is used
@@ -43,10 +45,11 @@ pub struct Gfx {
     surface: Surface,
     pub device: Device,
     pub queue: Queue,
+    pub ui: Option<Ui>,
 }
 
 impl Gfx {
-    pub async fn new(context: GfxContext, width: u32, height: u32) -> Gfx {
+    pub async fn new(context: GfxContext, width: u32, height: u32, with_ui: bool) -> Gfx {
         let instance = context.instance;
         let surface = context.surface;
 
@@ -83,11 +86,17 @@ impl Gfx {
 
         surface.configure(&device, &surface_desc);
 
+        let mut ui = None;
+        if with_ui {
+            ui = Some(Ui::new(&device, surface_desc.format));
+        }
+
         Gfx {
             config: surface_desc,
             surface,
             device,
             queue,
+            ui,
         }
     }
 
@@ -98,12 +107,18 @@ impl Gfx {
         self.surface.configure(&self.device, &self.config);
     }
 
-    pub fn render(&mut self, scene: Option<&mut Resources>, time: Time) {
+    pub fn render<F: FnOnce(&egui::Context)>(
+        &mut self,
+        scene: Option<&mut Resources>,
+        time: Time,
+        ui_input: Option<(f32, egui::RawInput)>, // f32 -> pixels_per_point
+        ui_render: F,
+    ) -> Option<egui::FullOutput> {
         let frame = match self.surface.get_current_texture() {
             Ok(frame) => frame,
             Err(e) => {
                 eprintln!("dropped frame: {e:?}");
-                return;
+                return None;
             }
         };
 
@@ -119,8 +134,30 @@ impl Gfx {
             scene.render(&self.queue, &view, &mut encoder, time);
         }
 
+        let mut full_output = None;
+
+        if let Some(ui) = self.ui.as_mut() {
+            let (pixels_per_point, input) =
+                ui_input.expect("Gfx::render() with scene, expected Some(ui_input) got None");
+            let output = ui.render(
+                &mut encoder,
+                &self.device,
+                &self.queue,
+                &view,
+                ui_render,
+                input,
+                pixels_per_point,
+                self.config.width,
+                self.config.height,
+            );
+
+            full_output = Some(output);
+        }
+
         self.queue.submit(Some(encoder.finish()));
 
         frame.present();
+
+        full_output
     }
 }

@@ -167,7 +167,8 @@ impl Background {
 
     pub fn run(self, rx: mpsc::Receiver<BackgroundEvent>) {
         let size = self.window.inner_size();
-        let mut gfx = pollster::block_on(Gfx::new(self.gfx_context, size.width, size.height));
+        let mut gfx =
+            pollster::block_on(Gfx::new(self.gfx_context, size.width, size.height, false));
         let mut resources = Resources::new(
             &self.app_state.get().scene,
             &gfx.device,
@@ -191,7 +192,12 @@ impl Background {
                             }
                             Event::MainEventsCleared => self.window.request_redraw(),
                             Event::RedrawEventsCleared => {
-                                gfx.render(Some(&mut resources), self.app_state.get().time);
+                                gfx.render(
+                                    Some(&mut resources),
+                                    self.app_state.get().time,
+                                    None,
+                                    |_| {},
+                                );
                             }
                             _ => {}
                         },

@@ -2,7 +2,7 @@ use std::collections::{hash_map::Iter, HashMap};
 
 use hex_color::{HexColor, ParseHexColorError};
 
-use crate::io::scene::{setting::Setting as DescriptorSetting, Descriptor};
+use crate::io::scene::{setting::Setting as SettingDescriptor, Descriptor};
 
 #[derive(Debug)]
 pub enum SettingParseError {
@@ -16,10 +16,10 @@ pub enum Setting {
 }
 
 impl Setting {
-    pub fn from_descriptor(setting: &DescriptorSetting) -> Result<Setting, SettingParseError> {
+    pub fn from_descriptor(setting: &SettingDescriptor) -> Result<Setting, SettingParseError> {
         match setting {
-            DescriptorSetting::Float { value, .. } => Ok(Setting::Float(*value)),
-            DescriptorSetting::Colour3 { value, .. } => {
+            SettingDescriptor::Float { value, .. } => Ok(Setting::Float(*value)),
+            SettingDescriptor::Colour3 { value, .. } => {
                 let colour = match HexColor::parse(value.as_str()) {
                     Ok(colour) => colour,
                     Err(error) => return Err(SettingParseError::InvalidHex(error)),

@@ -34,6 +34,8 @@ built to be cross-platform (Windows, macOS, Linux) using Rust.
 
 - **render**
   - [wgpu](https://crates.io/crates/wgpu/) = "0.15.0"
+  - [egui](https://crates.io/crates/egui) = "0.22.0"
+  - [egui-wgpu](https://crates.io/crates/egui-wgpu) = "0.22.0"
   - [serde](https://crates.io/crates/serde) = "1.0"
   - [toml](https://crates.io/crates/toml) = "0.7.3"
   - [cgmath](https://crates.io/crates/cgmath) = "0.18", [clap](https://crates.io/crates/clap) = "4.2.4, [chrono](https://crates.io/crates/chrono) = "0.4.24", [bytemuck](https://crates.io/crates/bytemuck) = "1.12", [rand](https://crates.io/crates/rand) = "0.8.5", [hex_color](https://crates.io/crates/hex_color) = "2.0.0", [naga](https://crates.io/crates/naga) = "0.11.0", [raw-window-handle](https://crates.io/crates/raw-window-handle) = "0.5", [log](https://crates.io/crates/log) = "0.4
@@ -45,6 +47,7 @@ built to be cross-platform (Windows, macOS, Linux) using Rust.
   - **macOS only:** [cocoa](https://crates.io/crates/cocoa) = "0.24", [objc](https://crates.io/crates/objc) = "0.2.2"
 - **web**
   - [winit](https://crates.io/crates/winit) = "0.28.6"
+  - [egui-winit](https://crates.io/crates/egui-winit) = "0.22.0"
   - [wasm-bindgen](https://crates.io/crates/wasm-bindgen) = "0.2.86"
   - [wasm-bindgen-futures](https://crates.io/crates/wasm-bindgen-futures) = "0.4.36"
   - [web-sys](https://crates.io/crates/web-sys) = "0.3.22"
@@ -78,3 +81,4 @@ the background can not render behind the menu bar.  set a black desktop backgrou
 - [Vanta.js](https://github.com/tengbao/vanta/blob/master/src/vanta.waves.js) by Teng Bao  
 - [cefrust](https://github.com/maketechnology/cefrust/blob/6404c4dc0c984b3ca92fff7d42d7599cd432f088/cefrustlib/src/lib.rs#LL154C24-L154C24)'s swizzleSendEvent
 - [wgpu-rs on the web](https://gfx-rs.github.io/2020/04/21/wgpu-web.html) by gfx-rs nuts and bolts
+- [BlueEngineEGUI](https://github.com/AryanpurTech/BlueEngineEGUI) by Elham Aryanpur
