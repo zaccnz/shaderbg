@@ -1,0 +1,4 @@
+/target
+generated/*
+!generated/*.html
+wasmbuild.sh

@@ -1,0 +1,58 @@
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>shaderbg web demo</title>
+    <style>
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0px;
+            text-align: center;
+        }
+
+        h1 {
+            font-family: sans-serif;
+            color: #ff4d00;
+            font-size: 6em;
+        }
+
+        p {
+            font-size: 2em;
+            margin-block-end: 0px;
+        }
+
+        #error {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="error">
+        <h1>⚠️ Error</h1>
+        <p>Your browser does not support WebGPU.</p>
+        <p>
+            Try Chrome, or take a look at which <a href="https://caniuse.com/webgpu">browsers</a> support this
+            experimental feature.
+        </p>
+    </div>
+    <script type="module">
+        if (!navigator.gpu) {
+            document.getElementById("error").style.display = "flex";
+            throw Error('Browser not supported');
+        }
+
+        import init from "./shaderbg-web.js";
+        init();
+    </script>
+</body>
+
+</html>
