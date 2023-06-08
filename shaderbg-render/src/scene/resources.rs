@@ -549,7 +549,6 @@ impl Resources {
                         });
                     }
                 } else {
-                    println!("cannot bind resource {}", binding);
                     return Err(ResourceError::IncorrectResource {
                         id: binding.clone(),
                         expected: "Bindable resource".to_string(),

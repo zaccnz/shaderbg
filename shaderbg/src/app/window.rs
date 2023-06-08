@@ -151,13 +151,14 @@ impl Window {
             Event::MainEventsCleared => self.window.request_redraw(),
             Event::RedrawEventsCleared => {
                 let mut changes = Vec::new();
-                let settings = {
+                let (settings, time) = {
                     let state = self.app_state.get();
-                    state.scene.settings.clone()
+                    (state.scene.settings.clone(), state.time.clone())
                 };
+
                 let full_output = self.gfx.render(
                     Some(&mut self.resources),
-                    self.app_state.get().time,
+                    time,
                     Some((
                         self.egui.pixels_per_point(),
                         self.egui.take_egui_input(&self.window),

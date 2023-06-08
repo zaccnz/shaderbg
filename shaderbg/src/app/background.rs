@@ -192,12 +192,8 @@ impl Background {
                             }
                             Event::MainEventsCleared => self.window.request_redraw(),
                             Event::RedrawEventsCleared => {
-                                gfx.render(
-                                    Some(&mut resources),
-                                    self.app_state.get().time,
-                                    None,
-                                    |_| {},
-                                );
+                                let time = { self.app_state.get().time.clone() };
+                                gfx.render(Some(&mut resources), time, None, |_| {});
                             }
                             _ => {}
                         },

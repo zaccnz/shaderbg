@@ -1,8 +1,10 @@
 use egui::RichText;
-use std::{collections::HashMap, rc::Rc};
+use std::{
+    collections::{HashMap, VecDeque},
+    rc::Rc,
+};
 use web_time::{Instant, SystemTime};
 
-use log::info;
 use shaderbg_render::{
     gfx::{self, buffer::Time, Gfx, GfxContext},
     scene::{Resources, Scene},
@@ -19,6 +21,7 @@ fn demo_ui(
     settings_open: &mut bool,
     scene_ui: &mut gfx::ui::Scene,
     scene: &Scene,
+    fps_average: f64,
 ) {
     ui.horizontal(|ui| {
         ui.label(
@@ -60,7 +63,7 @@ fn demo_ui(
 
         ui.hyperlink_to(
             "vertices.wgsl",
-            "https://github.com/zaccnz/shaderbg/blob/main/scenes/waves/vertex.wgsl",
+            "https://github.com/zaccnz/shaderbg/blob/main/scenes/waves/vertices.wgsl",
         );
         ui.label("compute shader that generates wave vertices");
         ui.end_row();
@@ -74,11 +77,12 @@ fn demo_ui(
     });
 
     ui.label("It is then rendered using WGPU-RS.  This runs the shaders natively (using Vulkan, Metal, DirectX 11/12 - or WebGPU in this demo).");
-    ui.label("There is no webview or game engine running.");
+    ui.label("There is no webview or game engine.");
     ui.separator();
     ui.vertical_centered(|ui| {
         ui.hyperlink_to("Get the full version", "https://github.com/zaccnz/shaderbg");
         ui.label("(still in development)");
+        ui.label(format!("{:.0} fps", fps_average));
     });
 }
 
@@ -89,8 +93,6 @@ pub enum ThemeEvent {
 }
 
 async fn run() {
-    info!("Starting web build");
-
     let event_loop = EventLoopBuilder::<ThemeEvent>::with_user_event().build();
     #[cfg(target_family = "wasm")]
     let proxy = event_loop.create_proxy();
@@ -147,6 +149,8 @@ async fn run() {
 
     let mut scene_ui = gfx::ui::Scene::new(&scene.descriptor);
 
+    let mut frame_times = VecDeque::new();
+
     event_loop.run(move |event, _, control_flow| {
         if let Event::WindowEvent { event, .. } = &event {
             if let Some(ui) = gfx.ui.as_ref() {
@@ -163,7 +167,6 @@ async fn run() {
                 event: WindowEvent::Resized(PhysicalSize { width, height }),
                 ..
             } => {
-                info!("resized");
                 gfx.resized(width, height);
             }
             Event::WindowEvent {
@@ -195,6 +198,12 @@ async fn run() {
                     .duration_since(started)
                     .unwrap()
                     .as_millis() as u32;
+                frame_times.push_back(dt);
+                if frame_times.len() > 100 {
+                    frame_times.pop_front().unwrap();
+                }
+                let total_frame_time: f64 = frame_times.iter().sum();
+                let fps_average = frame_times.len() as f64 / total_frame_time;
                 time.update_time(now_u32, dt);
                 last_frame = now;
 
@@ -212,7 +221,7 @@ async fn run() {
                             .movable(false)
                             .resizable(false)
                             .show(ctx, |ui| {
-                                demo_ui(ui, &mut settings_open, &mut scene_ui, &scene)
+                                demo_ui(ui, &mut settings_open, &mut scene_ui, &scene, fps_average);
                             });
 
                         let mut open = settings_open;

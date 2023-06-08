@@ -1,7 +1,6 @@
 use wgpu::{Device, Instance, Queue, Surface, SurfaceConfiguration};
 
 use crate::scene::Resources;
-use log::info;
 
 use self::buffer::Time;
 
@@ -27,8 +26,6 @@ impl GfxContext {
             backends: wgpu::Backends::all(),
             ..Default::default()
         });
-
-        info!("{:#?}", instance);
 
         // TODO: windows - use HWND of background process
         // https://stackoverflow.com/questions/56132584/draw-on-windows-10-wallpaper-in-c
