@@ -1,6 +1,6 @@
 use crate::gfx::camera::Camera;
 
-static mut STARTED_MS: std::time::SystemTime = std::time::SystemTime::UNIX_EPOCH;
+// static mut STARTED_MS: std::time::SystemTime = std::time::SystemTime::UNIX_EPOCH;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -11,20 +11,21 @@ pub struct Time {
 
 impl Time {
     pub fn new() -> Self {
+        /*
         unsafe {
             STARTED_MS = std::time::SystemTime::now();
-        }
+        }*/
 
         Time { time: 0, dt: 0.0 }
     }
 
-    pub fn update_time(&mut self, dt: f64) {
-        self.time = unsafe {
-            std::time::SystemTime::now()
-                .duration_since(STARTED_MS)
-                .unwrap()
-                .as_millis() as u32
-        };
+    pub fn update_time(&mut self, now: u32, dt: f64) {
+        self.time = now; /*unsafe {
+                             std::time::SystemTime::now()
+                                 .duration_since(STARTED_MS)
+                                 .unwrap()
+                                 .as_millis() as u32
+                         };*/
         self.dt = dt as f32;
     }
 }

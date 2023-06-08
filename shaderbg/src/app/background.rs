@@ -7,8 +7,8 @@ use tao::{
     window::{Window, WindowBuilder},
 };
 
-use crate::{
-    app::{AppState, WindowEvent},
+use crate::app::{AppState, WindowEvent};
+use shaderbg_render::{
     gfx::{Gfx, GfxContext},
     scene::{Resources, Setting},
 };
@@ -166,12 +166,14 @@ impl Background {
     }
 
     pub fn run(self, rx: mpsc::Receiver<BackgroundEvent>) {
-        let mut gfx = Gfx::new(self.gfx_context, &self.window);
+        let size = self.window.inner_size();
+        let mut gfx =
+            pollster::block_on(Gfx::new(self.gfx_context, size.width, size.height, false));
         let mut resources = Resources::new(
-            self.app_state.clone(),
             &self.app_state.get().scene,
             &gfx.device,
             &gfx.config,
+            self.app_state.get().time,
         )
         .unwrap();
 
@@ -190,7 +192,8 @@ impl Background {
                             }
                             Event::MainEventsCleared => self.window.request_redraw(),
                             Event::RedrawEventsCleared => {
-                                gfx.render(&self.window, Some(&mut resources), None);
+                                let time = { self.app_state.get().time.clone() };
+                                gfx.render(Some(&mut resources), time, None, |_| {});
                             }
                             _ => {}
                         },

@@ -6,10 +6,13 @@
  *
  * the real main thread is WindowThread, which processes the Tao EventLoop
  */
-use std::sync::{mpsc, Arc, RwLock};
+use std::{
+    sync::{mpsc, Arc, RwLock},
+    time::SystemTime,
+};
 use tao::{event::Event, event_loop::EventLoopProxy};
 
-use crate::{
+use shaderbg_render::{
     gfx::buffer::Time,
     io::{Args, Config},
     scene::{Scene, Setting},
@@ -71,6 +74,8 @@ pub fn start_main(
     let mut background_handle: Option<std::thread::JoinHandle<()>> = None;
     let mut background_channel: Option<mpsc::Sender<BackgroundEvent>> = None;
 
+    let started = SystemTime::now();
+
     let handle = std::thread::spawn(move || {
         /*
         if proxy.send_event(WindowEvent::).is_err() {
@@ -119,7 +124,11 @@ pub fn start_main(
                         }
                         AppEvent::Update(dt) => {
                             if let Ok(mut state) = state.write() {
-                                state.time.update_time(dt);
+                                let now = SystemTime::now()
+                                    .duration_since(started)
+                                    .unwrap()
+                                    .as_millis() as u32;
+                                state.time.update_time(now, dt);
                             }
                         }
                         AppEvent::EventLoopReady => {

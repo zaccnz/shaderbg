@@ -9,12 +9,8 @@ use std::sync::{
     Arc, RwLock, RwLockReadGuard,
 };
 
-use crate::{
-    app::{AppEvent, AppEventSender, AppMessage},
-    gfx::buffer::Time,
-    io::Config,
-    scene::Scene,
-};
+use crate::app::{AppEvent, AppEventSender, AppMessage};
+use shaderbg_render::{gfx::buffer::Time, io::Config, scene::Scene};
 
 pub struct State {
     pub config: Config,

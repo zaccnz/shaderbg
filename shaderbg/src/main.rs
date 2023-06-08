@@ -5,19 +5,18 @@ use std::path::PathBuf;
  */
 use clap::Parser;
 
-use crate::scene::Scene;
+use shaderbg_render::{io, scene::Scene};
 #[cfg(target_os = "macos")]
 #[macro_use]
 extern crate objc;
 
 mod app;
-pub mod ext; // pub to remove 'unused' warnings
-mod gfx;
-mod io;
-mod scene;
+pub mod egui_tao;
 
 fn main() {
     env_logger::init();
+    let working_dir = std::env::current_dir().unwrap();
+    println!("{}", working_dir.display());
 
     let scene = match Scene::load(PathBuf::from("scenes/waves")) {
         Ok(scene) => scene,
