@@ -2,7 +2,7 @@ use std::collections::{hash_map::Iter, HashMap};
 
 use hex_color::{HexColor, ParseHexColorError};
 
-use crate::io::scene::{setting::Setting as SettingDescriptor, Descriptor};
+use super::io::{setting::Setting as SettingDescriptor, Descriptor};
 
 #[derive(Debug)]
 pub enum SettingParseError {

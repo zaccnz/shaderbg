@@ -5,12 +5,12 @@ use std::collections::HashMap;
 
 use egui::RichText;
 
-use crate::{
-    io::scene::{
+use crate::scene::{
+    io::{
         setting::Setting as SettingDescriptor, util::DeserializableMap, Descriptor,
         Ui as UiDescriptor,
     },
-    scene::{Setting, Settings},
+    Setting, Settings,
 };
 
 enum SceneUiElement {

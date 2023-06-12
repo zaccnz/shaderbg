@@ -58,7 +58,7 @@ built to be cross-platform (Windows, macOS, Linux) using Rust.
 
 to build and run the desktop application
 ``` sh
-cargo run -p shaderbg-desktop
+cargo run -p shaderbg
 ```
 
 to build the web demo

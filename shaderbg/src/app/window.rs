@@ -1,3 +1,4 @@
+use egui::RichText;
 /*
  * Main window
  */
@@ -167,8 +168,23 @@ impl Window {
                         egui::Window::new("shaderbg")
                             .movable(false)
                             .resizable(false)
+                            .title_bar(false)
                             .show(ctx, |ui| {
-                                if ui.button("Settings").clicked() {
+                                ui.heading(RichText::new("Current Scene").strong());
+                                ui.horizontal(|ui| {
+                                    ui.label(
+                                        RichText::new(
+                                            self.app_state.get().scene.descriptor.meta.name.clone(),
+                                        )
+                                        .strong(),
+                                    );
+
+                                    ui.label(format!(
+                                        "({})",
+                                        self.app_state.get().scene.descriptor.meta.version.clone()
+                                    ));
+                                });
+                                if ui.button("Scene Settings").clicked() {
                                     self.settings_open = true;
                                     self.scene_ui.load_settings(&self.app_state.get().scene);
                                 }

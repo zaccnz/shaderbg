@@ -5,13 +5,14 @@ use std::path::PathBuf;
  */
 use clap::Parser;
 
-use shaderbg_render::{io, scene::Scene};
+use shaderbg_render::scene::Scene;
 #[cfg(target_os = "macos")]
 #[macro_use]
 extern crate objc;
 
 mod app;
 pub mod egui_tao;
+mod io;
 
 fn main() {
     env_logger::init();

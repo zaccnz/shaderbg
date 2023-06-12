@@ -20,7 +20,7 @@ use crate::{
         buffer::{CameraMatrix, Time},
         camera::Camera,
     },
-    io::scene::{
+    scene::io::{
         pass::{RenderClear, RenderDraw, RenderPass, RenderPipelineBindingVisibility},
         resource::{
             BufferStorage, BufferStorageType, BufferVertex, BufferVertexAttribute,

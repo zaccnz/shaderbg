@@ -1,7 +1,8 @@
-use std::{collections::HashMap, fs, io, path::PathBuf};
+use std::{collections::HashMap, fs, path::PathBuf};
 
-use crate::io::scene::{resource::Resource, Descriptor};
+use io::{resource::Resource, Descriptor};
 
+pub mod io;
 mod resources;
 mod settings;
 pub use resources::*;
@@ -9,7 +10,7 @@ pub use settings::*;
 
 #[derive(Debug)]
 pub enum SceneError {
-    SceneTomlError(io::Error),
+    SceneTomlError(std::io::Error),
     InvalidResource {
         kind: String,
         id: String,
@@ -35,8 +36,8 @@ impl Scene {
         let toml_string = match std::str::from_utf8(toml_content.as_slice()) {
             Ok(string) => string,
             Err(error) => {
-                return Err(SceneError::SceneTomlError(io::Error::new(
-                    io::ErrorKind::Other,
+                return Err(SceneError::SceneTomlError(std::io::Error::new(
+                    std::io::ErrorKind::Other,
                     error,
                 )))
             }
@@ -45,8 +46,8 @@ impl Scene {
         let descriptor: Descriptor = match toml::from_str(toml_string) {
             Ok(descriptor) => descriptor,
             Err(error) => {
-                return Err(SceneError::SceneTomlError(io::Error::new(
-                    io::ErrorKind::Other,
+                return Err(SceneError::SceneTomlError(std::io::Error::new(
+                    std::io::ErrorKind::Other,
                     error,
                 )))
             }
@@ -94,8 +95,8 @@ impl Scene {
         let toml_string = match std::str::from_utf8(scene_toml.as_slice()) {
             Ok(string) => string,
             Err(error) => {
-                return Err(SceneError::SceneTomlError(io::Error::new(
-                    io::ErrorKind::Other,
+                return Err(SceneError::SceneTomlError(std::io::Error::new(
+                    std::io::ErrorKind::Other,
                     error,
                 )))
             }
@@ -104,8 +105,8 @@ impl Scene {
         let descriptor: Descriptor = match toml::from_str(toml_string) {
             Ok(descriptor) => descriptor,
             Err(error) => {
-                return Err(SceneError::SceneTomlError(io::Error::new(
-                    io::ErrorKind::Other,
+                return Err(SceneError::SceneTomlError(std::io::Error::new(
+                    std::io::ErrorKind::Other,
                     error,
                 )))
             }

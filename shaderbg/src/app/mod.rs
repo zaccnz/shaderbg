@@ -12,9 +12,9 @@ use std::{
 };
 use tao::{event::Event, event_loop::EventLoopProxy};
 
+use crate::io::{Args, Config};
 use shaderbg_render::{
     gfx::buffer::Time,
-    io::{Args, Config},
     scene::{Scene, Setting},
 };
 
@@ -64,7 +64,7 @@ pub fn start_main(
         config: config.clone(),
         window_open: args.window.unwrap_or(config.window),
         tray_open: args.tray.unwrap_or(config.tray),
-        background_open: true,
+        background_open: false,
         scene,
         time: Time::new(),
     }));

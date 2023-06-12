@@ -1421,9 +1421,9 @@ checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "iana-time-zone"
-version = "0.1.56"
+version = "0.1.57"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0722cd7114b7de04316e7ea5456a0bbb20e4adb46fd27a3697adb812cff0f37c"
+checksum = "2fad5b825842d2b38bd206f3e81d6957625fd7f0a361e345c30e01a0ae2dd613"
 dependencies = [
  "android_system_properties",
  "core-foundation-sys",
@@ -2482,6 +2482,7 @@ dependencies = [
 name = "shaderbg"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "clap",
  "cocoa",
  "egui",
@@ -2491,8 +2492,10 @@ dependencies = [
  "objc",
  "pollster",
  "raw-window-handle",
+ "serde",
  "shaderbg-render",
  "tao",
+ "toml",
 ]
 
 [[package]]
@@ -2501,7 +2504,6 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "cgmath",
- "chrono",
  "clap",
  "egui",
  "egui-wgpu",
