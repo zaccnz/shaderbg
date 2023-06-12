@@ -12,7 +12,7 @@ egui-wgpu = "0.22.0"
 cgmath = "0.18"
 clap = { workspace = true }
 serde = { workspace = true}
-toml = "0.7.3"
+toml = { workspace = true }
 bytemuck = { version = "1.12", features = [ "derive" ] }
 rand = "0.8.5"
 hex_color = "2.0.0"
