@@ -13,17 +13,16 @@ use std::{
 use tao::{event::Event, event_loop::EventLoopProxy};
 
 use crate::io::{Args, Config};
-use shaderbg_render::{
-    gfx::buffer::Time,
-    scene::{Scene, Setting},
-};
+use shaderbg_render::scene::{Scene, Setting};
 
 mod background;
+mod menu;
 mod state;
 mod thread;
 mod tray;
 mod window;
 pub use background::*;
+pub use menu::*;
 pub use state::*;
 pub use thread::*;
 pub use tray::*;
@@ -60,14 +59,7 @@ pub fn start_main(
     let (tx, rx) = mpsc::channel::<AppMessage>();
 
     let app_tx = tx.clone();
-    let state = Arc::new(RwLock::new(State {
-        config: config.clone(),
-        window_open: args.window.unwrap_or(config.window),
-        tray_open: args.tray.unwrap_or(config.tray),
-        background_open: false,
-        scene,
-        time: Time::new(),
-    }));
+    let state = Arc::new(RwLock::new(State::new(args, config, scene)));
     let app_state = AppState::build(state.clone(), app_tx, AppEventSender::Window);
     let return_state = app_state.clone();
 
@@ -77,15 +69,9 @@ pub fn start_main(
     let started = SystemTime::now();
 
     let handle = std::thread::spawn(move || {
-        /*
-        if proxy.send_event(WindowEvent::).is_err() {
-            println!("failed to send windowevent");
-        } */
-
         loop {
             match rx.recv() {
                 Ok((event, _sender)) => {
-                    //println!("{:?} from {:?}", event, sender);
                     match event {
                         AppEvent::Window(event) => {
                             proxy.send_event(event).unwrap();
@@ -114,9 +100,7 @@ pub fn start_main(
                             }
                         }
                         AppEvent::BackgroundClosed => {
-                            proxy
-                                .send_event(WindowEvent::CloseBackgroundWindow)
-                                .unwrap();
+                            proxy.send_event(WindowEvent::StopBackground).unwrap();
                             background_channel.take();
                             if let Some(handle) = background_handle.take() {
                                 handle.join().unwrap();
@@ -132,10 +116,18 @@ pub fn start_main(
                             }
                         }
                         AppEvent::EventLoopReady => {
-                            if state.read().unwrap().background_open {
-                                proxy
-                                    .send_event(WindowEvent::CreateBackgroundWindow)
-                                    .unwrap();
+                            let (window_open, tray_open, background_open) = {
+                                let state = app_state.get();
+                                (state.window_open, state.tray_open, state.background_open)
+                            };
+                            if window_open {
+                                proxy.send_event(WindowEvent::StartWindow).unwrap();
+                            }
+                            if tray_open {
+                                proxy.send_event(WindowEvent::StartTray).unwrap();
+                            }
+                            if background_open {
+                                proxy.send_event(WindowEvent::StartBackground).unwrap();
                             }
                         }
                         AppEvent::EventLoopQuit => {

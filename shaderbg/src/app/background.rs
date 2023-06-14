@@ -7,13 +7,11 @@ use tao::{
     window::{Window, WindowBuilder},
 };
 
-use crate::app::{AppState, WindowEvent};
+use crate::app::{AppEvent, AppState, WindowEvent};
 use shaderbg_render::{
     gfx::{Gfx, GfxContext},
     scene::{Resources, Setting},
 };
-
-use super::AppEvent;
 
 #[derive(Debug)]
 pub enum BackgroundEvent {
@@ -179,29 +177,26 @@ impl Background {
 
         loop {
             match rx.recv() {
-                Ok(event) => {
-                    //println!("background event: {:?}", event);
-                    match event {
-                        BackgroundEvent::TaoEvent(event) => match event {
-                            Event::WindowEvent {
-                                event: event::WindowEvent::CloseRequested,
-                                ..
-                            } => {
-                                self.app_state.send(AppEvent::BackgroundClosed).unwrap();
-                                break;
-                            }
-                            Event::MainEventsCleared => self.window.request_redraw(),
-                            Event::RedrawEventsCleared => {
-                                let time = { self.app_state.get().time.clone() };
-                                gfx.render(Some(&mut resources), time, None, |_| {});
-                            }
-                            _ => {}
-                        },
-                        BackgroundEvent::SettingUpdated(key, value) => {
-                            resources.update_setting(key, value);
+                Ok(event) => match event {
+                    BackgroundEvent::TaoEvent(event) => match event {
+                        Event::WindowEvent {
+                            event: event::WindowEvent::CloseRequested,
+                            ..
+                        } => {
+                            self.app_state.send(AppEvent::BackgroundClosed).unwrap();
+                            break;
                         }
+                        Event::MainEventsCleared => self.window.request_redraw(),
+                        Event::RedrawEventsCleared => {
+                            let time = { self.app_state.get().time.clone() };
+                            gfx.render(Some(&mut resources), time, None, |_| {});
+                        }
+                        _ => {}
+                    },
+                    BackgroundEvent::SettingUpdated(key, value) => {
+                        resources.update_setting(key, value);
                     }
-                }
+                },
                 _ => {}
             }
         }

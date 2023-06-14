@@ -712,14 +712,8 @@ impl State {
 }
 
 fn open_url_in_browser(_url: &str) {
-    #[cfg(feature = "webbrowser")]
     if let Err(err) = webbrowser::open(_url) {
         log::warn!("Failed to open url: {}", err);
-    }
-
-    #[cfg(not(feature = "webbrowser"))]
-    {
-        log::warn!("Cannot open url - feature \"links\" not enabled.");
     }
 }
 

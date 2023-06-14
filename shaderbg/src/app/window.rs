@@ -1,7 +1,7 @@
-use egui::RichText;
 /*
  * Main window
  */
+use egui::RichText;
 use tao::{
     dpi::{LogicalSize, PhysicalSize},
     event::{Event, WindowEvent as TaoWindowEvent},
@@ -11,13 +11,21 @@ use tao::{
 };
 
 use crate::{
-    app::{AppState, WindowEvent},
+    app::{AppState, MenuBuilder, WindowEvent},
     egui_tao,
 };
 use shaderbg_render::{
     gfx::{self, Gfx, GfxContext},
     scene::{Resources, Setting},
 };
+
+#[derive(Debug)]
+pub enum Windows {
+    SceneBrowser,
+    SceneSettings,
+    Settings,
+    Performance,
+}
 
 pub struct Window {
     window: TaoWindow,
@@ -31,7 +39,11 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn build(event_loop: &EventLoopWindowTarget<WindowEvent>, app_state: AppState) -> Window {
+    pub fn build(
+        event_loop: &EventLoopWindowTarget<WindowEvent>,
+        app_state: AppState,
+        menu_builder: &mut MenuBuilder,
+    ) -> Window {
         #[cfg(target_os = "macos")]
         {
             use tao::platform::macos::{ActivationPolicy, EventLoopWindowTargetExtMacOS};
@@ -41,6 +53,7 @@ impl Window {
         let window = WindowBuilder::new()
             .with_title("shaderbg")
             .with_inner_size(LogicalSize::new(1024, 576))
+            .with_menu(menu_builder.build_window_menu())
             .build(&event_loop)
             .unwrap();
 
@@ -222,6 +235,15 @@ impl Window {
         }
 
         true
+    }
+
+    pub fn open_ui_window(&mut self, window: Windows) {
+        match window {
+            Windows::SceneBrowser => todo!(),
+            Windows::SceneSettings => self.settings_open = true,
+            Windows::Settings => todo!(),
+            Windows::Performance => todo!(),
+        }
     }
 
     pub fn will_close(&self, event_loop: &EventLoopWindowTarget<WindowEvent>) {

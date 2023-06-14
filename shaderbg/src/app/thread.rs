@@ -7,17 +7,22 @@ use tao::{
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
 
-use crate::app::{AppEvent, AppEventSender, AppState, Background, Tray, Window};
+use crate::app::{
+    AppEvent, AppEventSender, AppState, Background, MenuBuilder, Tray, Window, Windows,
+};
 use shaderbg_render::scene::Setting;
 
 #[derive(Debug)]
 pub enum WindowEvent {
-    OpenWindow,
+    StartWindow,
+    StopWindow,
     StartTray,
-    CloseTray,
-    CreateBackgroundWindow,
-    CloseBackgroundWindow,
+    StopTray,
+    StartBackground,
+    StopBackground,
     SettingUpdated(String, Setting),
+    OpenUiWindow(Windows),
+    Quit,
 }
 
 enum WindowEventTarget {
@@ -33,17 +38,7 @@ pub struct WindowThread {
 
 impl WindowThread {
     pub fn build() -> (WindowThread, EventLoop<WindowEvent>) {
-        let mut event_loop = EventLoop::<WindowEvent>::with_user_event();
-        /*
-               let tray = Some(Tray::build(&event_loop));
-               let window = Some(Window::build(&event_loop));
-        */
-
-        #[cfg(target_os = "macos")]
-        {
-            use tao::platform::macos::{ActivationPolicy, EventLoopExtMacOS};
-            event_loop.set_activation_policy(ActivationPolicy::Accessory);
-        }
+        let event_loop = EventLoop::<WindowEvent>::with_user_event();
 
         (
             WindowThread {
@@ -71,20 +66,6 @@ impl WindowThread {
         }
     }
 
-    fn handle_tray_event(
-        &mut self,
-        event: Event<WindowEvent>,
-        event_loop: &EventLoopWindowTarget<WindowEvent>,
-        control_flow: &mut ControlFlow,
-    ) {
-        let tray = self.tray.take();
-
-        if let Some(mut tray) = tray {
-            tray.handle(event, event_loop, control_flow);
-            self.tray = Some(tray);
-        }
-    }
-
     pub fn run(
         mut self,
         event_loop: EventLoop<WindowEvent>,
@@ -94,73 +75,93 @@ impl WindowThread {
         let mut handle = Some(handle);
         let mut background_window_id = None;
         let mut last_frame = Instant::now();
+        let mut menu_builder = MenuBuilder::new(app_state.clone());
 
         event_loop.run(move |event, event_loop, control_flow| {
             *control_flow = ControlFlow::Wait;
+            let mut started = false;
             match event {
                 Event::NewEvents(StartCause::Init) => {
-                    println!("Event::NewEvents(StartCause::Init)");
-
+                    #[cfg(target_os = "macos")]
                     {
-                        let state = app_state.get();
-                        if state.window_open {
-                            self.window = Some(Window::build(event_loop, app_state.clone()));
-                        }
-                        if state.tray_open {
-                            self.tray = Some(Tray::build(event_loop, app_state.clone()));
-                        }
+                        use tao::platform::macos::{
+                            ActivationPolicy, EventLoopWindowTargetExtMacOS,
+                        };
+                        event_loop.set_activation_policy_at_runtime(ActivationPolicy::Accessory);
                     }
                     app_state.send(AppEvent::EventLoopReady).unwrap();
+                    started = true;
                 }
                 Event::LoopDestroyed => {
-                    println!("Loop Destroyed");
                     self.tray.take();
                     app_state.send(AppEvent::EventLoopQuit).unwrap();
                     handle.take().unwrap().join().unwrap();
                 }
-                Event::UserEvent(window_event) => {
-                    match window_event {
-                        WindowEvent::OpenWindow => {
-                            if self.window.is_some() {
-                                panic!("Cannot open window - already open");
-                            }
-                            self.window = Some(Window::build(event_loop, app_state.clone()));
-                        }
-                        WindowEvent::StartTray => {
-                            if self.tray.is_some() {
-                                panic!("Cannot start tray - already started");
-                            }
-                            self.tray = Some(Tray::build(event_loop, app_state.clone()));
-                            app_state.send(AppEvent::TrayStateChange(true)).unwrap();
-                        }
-                        WindowEvent::CloseTray => {
-                            self.tray.take();
-                            app_state.send(AppEvent::TrayStateChange(false)).unwrap();
-                        }
-                        WindowEvent::CreateBackgroundWindow => {
-                            let background = Background::new(
+                Event::UserEvent(window_event) => match window_event {
+                    WindowEvent::StartWindow => {
+                        if self.window.is_some() {
+                            eprintln!("Cannot open window - already open");
+                        } else {
+                            self.window = Some(Window::build(
                                 event_loop,
-                                app_state.clone_for(AppEventSender::Background),
-                            );
-
-                            background_window_id = Some(background.window.id());
-
-                            app_state
-                                .send(AppEvent::BackgroundCreated(background))
-                                .unwrap();
-                        }
-                        WindowEvent::CloseBackgroundWindow => {
-                            background_window_id.take();
-                        }
-                        WindowEvent::SettingUpdated(key, value) => {
-                            if let Some(mut window) = self.window.take() {
-                                window.update_setting(key, value);
-                                self.window = Some(window);
-                            }
+                                app_state.clone(),
+                                &mut menu_builder,
+                            ));
                         }
                     }
-                    // println!("{:?}", window_event);
-                }
+                    WindowEvent::StopWindow => {
+                        self.window.take();
+                    }
+                    WindowEvent::StartTray => {
+                        if self.tray.is_some() {
+                            eprintln!("Cannot start tray - already started");
+                        } else {
+                            self.tray = Some(Tray::build(event_loop, &mut menu_builder));
+                            app_state.send(AppEvent::TrayStateChange(true)).unwrap();
+                        }
+                    }
+                    WindowEvent::StopTray => {
+                        self.tray.take();
+                        app_state.send(AppEvent::TrayStateChange(false)).unwrap();
+                    }
+                    WindowEvent::StartBackground => {
+                        let background = Background::new(
+                            event_loop,
+                            app_state.clone_for(AppEventSender::Background),
+                        );
+
+                        background_window_id = Some(background.window.id());
+
+                        app_state
+                            .send(AppEvent::BackgroundCreated(background))
+                            .unwrap();
+                    }
+                    WindowEvent::StopBackground => {
+                        background_window_id.take();
+                    }
+                    WindowEvent::SettingUpdated(key, value) => {
+                        if let Some(mut window) = self.window.take() {
+                            window.update_setting(key, value);
+                            self.window = Some(window);
+                        }
+                    }
+                    WindowEvent::Quit => {
+                        *control_flow = ControlFlow::Exit;
+                    }
+                    WindowEvent::OpenUiWindow(ui_window) => {
+                        if self.window.is_none() {
+                            self.window = Some(Window::build(
+                                event_loop,
+                                app_state.clone(),
+                                &mut menu_builder,
+                            ));
+                        }
+
+                        if let Some(window) = self.window.as_mut() {
+                            window.open_ui_window(ui_window);
+                        }
+                    }
+                },
                 Event::WindowEvent { window_id, .. } => {
                     let mut target = WindowEventTarget::None;
 
@@ -212,13 +213,18 @@ impl WindowThread {
                         .unwrap();
                     last_frame = now;
                 }
-                Event::MenuEvent { .. } | Event::TrayEvent { .. } => {
-                    self.handle_tray_event(event, event_loop, control_flow)
+                Event::MenuEvent { .. } => {
+                    menu_builder.handle_event(event);
                 }
+                Event::TrayEvent { .. } => {}
                 _ => (),
             }
 
-            if self.window.is_none() && self.tray.is_none() && background_window_id.is_none() {
+            if !started
+                && self.window.is_none()
+                && self.tray.is_none()
+                && background_window_id.is_none()
+            {
                 *control_flow = ControlFlow::Exit;
             }
         });

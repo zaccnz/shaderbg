@@ -1,14 +1,13 @@
-use std::path::PathBuf;
-
 /*
  * App entrypoint
  */
 use clap::Parser;
-
-use shaderbg_render::scene::Scene;
+use std::path::PathBuf;
 #[cfg(target_os = "macos")]
 #[macro_use]
 extern crate objc;
+
+use shaderbg_render::scene::Scene;
 
 mod app;
 pub mod egui_tao;
@@ -16,8 +15,6 @@ mod io;
 
 fn main() {
     env_logger::init();
-    let working_dir = std::env::current_dir().unwrap();
-    println!("{}", working_dir.display());
 
     let scene = match Scene::load(PathBuf::from("scenes/waves")) {
         Ok(scene) => scene,

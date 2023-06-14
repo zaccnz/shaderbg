@@ -2,9 +2,7 @@
  * System tray menu
  */
 use tao::{
-    event::Event,
-    event_loop::{ControlFlow, EventLoopWindowTarget},
-    menu::{ContextMenu, CustomMenuItem, MenuItemAttributes, MenuType},
+    event_loop::EventLoopWindowTarget,
     system_tray::{SystemTray, SystemTrayBuilder},
     TrayId,
 };
@@ -12,25 +10,23 @@ use tao::{
 #[cfg(target_os = "linux")]
 use tao::platform::linux::SystemTrayBuilderExtLinux;
 
-use crate::app::{AppEvent, AppState, WindowEvent};
+use crate::app::{MenuBuilder, WindowEvent};
 
 pub struct Tray {
     system_tray: Option<SystemTray>,
-    quit: CustomMenuItem,
-    menu_item: CustomMenuItem,
-    app_state: AppState,
 }
 
 impl Tray {
-    pub fn build(event_loop: &EventLoopWindowTarget<WindowEvent>, app_state: AppState) -> Tray {
+    pub fn build(
+        event_loop: &EventLoopWindowTarget<WindowEvent>,
+        menu_builder: &mut MenuBuilder,
+    ) -> Tray {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/icon.png");
 
         let main_tray_id = TrayId::new("main-tray");
         let icon = load_icon(std::path::Path::new(path));
-        let mut tray_menu = ContextMenu::new();
-        let menu_item = tray_menu.add_item(MenuItemAttributes::new("Open Window"));
 
-        let quit = tray_menu.add_item(MenuItemAttributes::new("Quit"));
+        let tray_menu = menu_builder.build_tray_menu();
 
         #[cfg(target_os = "linux")]
         let system_tray = SystemTrayBuilder::new(icon.clone(), Some(tray_menu))
@@ -55,54 +51,7 @@ impl Tray {
 
         let system_tray = Some(system_tray);
 
-        Tray {
-            system_tray,
-            quit,
-            menu_item,
-            app_state,
-        }
-    }
-
-    pub fn handle(
-        &mut self,
-        event: Event<WindowEvent>,
-        _event_loop: &EventLoopWindowTarget<WindowEvent>,
-        control_flow: &mut ControlFlow,
-    ) {
-        match event {
-            Event::MenuEvent {
-                menu_id,
-                origin: MenuType::ContextMenu,
-                ..
-            } => {
-                if menu_id == self.quit.clone().id() {
-                    *control_flow = ControlFlow::Exit;
-                } else if menu_id == self.menu_item.clone().id() {
-                    self.app_state
-                        .send(AppEvent::Window(WindowEvent::OpenWindow))
-                        .unwrap();
-                }
-            }
-            /*
-            Event::TrayEvent {
-                id,
-                bounds,
-                event,
-                position,
-                ..
-            } => {
-                let tray = if id == self.tray_id {
-                    "main"
-                } else {
-                    "unknown"
-                };
-                println!(
-                    "tray `{}` event: {:?} {:?} {:?}",
-                    tray, event, bounds, position
-                );
-            }*/
-            _ => (),
-        }
+        Tray { system_tray }
     }
 }
 

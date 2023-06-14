@@ -45,6 +45,7 @@ built to be cross-platform (Windows, macOS, Linux) using Rust.
   - [env_logger](https://crates.io/crates/env_logger/) = "0.10.0"
   - [image](https://crates.io/crates/image/) = "0.24.6"
   - [pollster](https://crates.io/crates/pollster/) = "0.3.0"
+  - [webbrowser](https://crates.io/crates/webbrowser) = "0.8.10"
   - **macOS only:** [cocoa](https://crates.io/crates/cocoa) = "0.24", [objc](https://crates.io/crates/objc) = "0.2.2"
 - **web**
   - [winit](https://crates.io/crates/winit) = "0.28.6"

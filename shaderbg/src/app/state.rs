@@ -11,7 +11,7 @@ use std::sync::{
 
 use crate::{
     app::{AppEvent, AppEventSender, AppMessage},
-    io::Config,
+    io::{Args, Config},
 };
 use shaderbg_render::{gfx::buffer::Time, scene::Scene};
 
@@ -24,6 +24,26 @@ pub struct State {
     pub time: Time,
 }
 
+impl State {
+    // todo: try and find scene in some list of loaded scenes
+    // return error if scene not found
+    pub fn new(args: Args, config: Config, scene: Scene) -> State {
+        State {
+            config: config.clone(),
+            window_open: args.window.unwrap_or(config.window),
+            tray_open: args.tray.unwrap_or(config.tray),
+            background_open: args.background.unwrap_or(config.background),
+            scene,
+            time: Time::new(),
+        }
+    }
+}
+
+/*
+ * AppState is the state of the app wrapped in Arc<RwLock> so it can be passed
+ * around different threads, an owner (for event sending) and a Sender to send
+ * messages back to 'main' app thread
+ */
 #[derive(Clone)]
 pub struct AppState {
     state: Arc<RwLock<State>>,
@@ -52,7 +72,6 @@ impl AppState {
         self.app_tx.send((event, self.owner.clone()))
     }
 
-    #[allow(dead_code)]
     pub fn clone_for(&self, owner: AppEventSender) -> AppState {
         AppState {
             state: self.state.clone(),
