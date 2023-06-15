@@ -157,6 +157,8 @@ impl Gfx {
 
         frame.present();
 
+        self.device.poll(wgpu::MaintainBase::Wait);
+
         full_output
     }
 }

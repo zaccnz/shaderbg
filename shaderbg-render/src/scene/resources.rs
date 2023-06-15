@@ -972,7 +972,7 @@ impl Resources {
                                     rpass.set_vertex_buffer(0, vertex_buffer.buffer.slice(..));
                                     vertices = vertex_buffer
                                         .vertex_count
-                                        .expect("Vertex buffer has no vertex count");
+                                        .expect("Quad buffer has no vertex count");
                                 }
                             }
                         }
