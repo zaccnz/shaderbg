@@ -17,20 +17,24 @@ use wgpu::{
 
 use crate::{
     gfx::{
-        buffer::{CameraMatrix, Time},
+        buffer::{CameraMatrix, ShaderToy, Time},
         camera::Camera,
+        vertices::VERTICES_QUAD,
     },
-    scene::io::{
-        pass::{RenderClear, RenderDraw, RenderPass, RenderPipelineBindingVisibility},
-        resource::{
-            BufferStorage, BufferStorageType, BufferVertex, BufferVertexAttribute,
-            BufferVertexAttributeFormat, BufferVertexStep, Resource, ShaderFormat,
+    scene::{
+        io::{
+            pass::{
+                RenderClear, RenderDraw, RenderPass, RenderPipelineBindingVisibility,
+                RenderVertices,
+            },
+            resource::{
+                BufferStorage, BufferStorageType, BufferVertex, BufferVertexAttribute,
+                BufferVertexAttributeFormat, BufferVertexStep, Resource, ShaderFormat,
+            },
         },
+        Scene, Setting,
     },
-    scene::Scene,
 };
-
-use super::Setting;
 
 #[derive(Debug, PartialEq)]
 enum ResourceType {
@@ -130,6 +134,7 @@ impl Resources {
         device: &Device,
         config: &SurfaceConfiguration,
         time: Time,
+        shadertoy: ShaderToy,
     ) -> Result<Resources, ResourceError> {
         let descriptor = &scene.descriptor;
 
@@ -158,6 +163,21 @@ impl Resources {
             },
         );
         uniforms.insert("time".to_string(), UniformResource::Internal);
+
+        buffers.insert(
+            "shadertoy".to_string(),
+            BufferResource {
+                buffer: device.create_buffer_init(&BufferInitDescriptor {
+                    label: Some("ShaderToy Uniform"),
+                    contents: bytemuck::cast_slice(&[shadertoy]),
+                    usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+                }),
+                vertex: None,
+                vertex_count: None,
+                storage: None,
+            },
+        );
+        uniforms.insert("shadertoy".to_string(), UniformResource::Internal);
 
         for (id, res) in descriptor.resources.iter() {
             match res {
@@ -318,7 +338,10 @@ impl Resources {
                             label: label.as_deref(),
                             source: wgpu::ShaderSource::Glsl {
                                 shader: Cow::Owned(shader_source_string.to_string()),
-                                stage: stage.as_ref().unwrap().as_wgpu(),
+                                stage: stage
+                                    .as_ref()
+                                    .expect("GLSL shaders must specify a stage")
+                                    .as_wgpu(),
                                 defines: Default::default(),
                             },
                         }),
@@ -417,14 +440,15 @@ impl Resources {
         };
 
         for pass in descriptor.render_passes.iter() {
-            resources.passes.push(match pass {
+            let pass_resource = match pass {
                 RenderPass::Compute { .. } => {
                     resources.build_compute_pipeline(scene, pass, device, &shaders)?
                 }
                 RenderPass::Render { .. } => {
                     resources.build_render_pipeline(scene, pass, device, config, &shaders)?
                 }
-            });
+            };
+            resources.passes.push(pass_resource);
         }
 
         Ok(resources)
@@ -653,7 +677,7 @@ impl Resources {
     }
 
     fn build_render_pipeline(
-        &self,
+        &mut self,
         scene: &Scene,
         pass: &RenderPass,
         device: &Device,
@@ -727,6 +751,41 @@ impl Resources {
         if let Some(vertex) = pipeline.vertex.as_ref() {
             attributes.extend(vertex.attributes().iter());
             buffers.push(vertex.desc(attributes.as_slice()));
+        }
+
+        for draw in draw {
+            if let Some(vertices) = draw.vertices.as_ref() {
+                match vertices {
+                    RenderVertices::Quad => self.buffers.insert(
+                        "quad".to_string(),
+                        BufferResource {
+                            buffer: device.create_buffer_init(&BufferInitDescriptor {
+                                label: Some("Quad Buffer"),
+                                contents: bytemuck::cast_slice(VERTICES_QUAD),
+                                usage: BufferUsages::VERTEX,
+                            }),
+                            vertex: Some(BufferVertex {
+                                stride: 16,
+                                step: Some(BufferVertexStep::Vertex),
+                                attributes: vec![
+                                    BufferVertexAttribute {
+                                        offset: 0,
+                                        location: 0,
+                                        format: BufferVertexAttributeFormat::Float32x2,
+                                    },
+                                    BufferVertexAttribute {
+                                        offset: 8,
+                                        location: 1,
+                                        format: BufferVertexAttributeFormat::Float32x2,
+                                    },
+                                ],
+                            }),
+                            vertex_count: Some(6),
+                            storage: None,
+                        },
+                    ),
+                };
+            }
         }
 
         let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
@@ -811,9 +870,17 @@ impl Resources {
         view: &TextureView,
         encoder: &mut CommandEncoder,
         time: Time,
+        shadertoy: ShaderToy,
     ) {
         if let Some(time_buffer) = self.buffers.get(&"time".to_string()) {
             queue.write_buffer(&time_buffer.buffer, 0, bytemuck::cast_slice(&[time]));
+        }
+        if let Some(shadertoy_buffer) = self.buffers.get(&"shadertoy".to_string()) {
+            queue.write_buffer(
+                &shadertoy_buffer.buffer,
+                0,
+                bytemuck::cast_slice(&[shadertoy]),
+            );
         }
 
         for uniform_id in self.updated_uniforms.drain(..) {
@@ -887,7 +954,7 @@ impl Resources {
                     rpass.set_pipeline(pipeline);
                     for draw in draw {
                         rpass.set_bind_group(0, bind_group, &[]);
-                        let mut vertices = draw.vertex_count.unwrap_or(6);
+                        let mut vertices = draw.vertex_count.unwrap_or(0);
                         let instances = draw.instances.unwrap_or(1);
 
                         if let Some(vertex_buffer) = draw.vertex_buffer.as_ref() {
@@ -896,6 +963,18 @@ impl Resources {
                             vertices = vertex_buffer
                                 .vertex_count
                                 .expect("Vertex buffer has no vertex count");
+                        }
+
+                        if let Some(vertices_type) = draw.vertices.as_ref() {
+                            match vertices_type {
+                                RenderVertices::Quad => {
+                                    let vertex_buffer = self.buffers.get("quad").unwrap();
+                                    rpass.set_vertex_buffer(0, vertex_buffer.buffer.slice(..));
+                                    vertices = vertex_buffer
+                                        .vertex_count
+                                        .expect("Vertex buffer has no vertex count");
+                                }
+                            }
                         }
 
                         rpass.draw(0..vertices, 0..instances);

@@ -1,0 +1,60 @@
+# ShaderToy Demo Scene
+[meta]
+name = "Desert"
+version = "1.0"
+description = "Desert Sands - ShaderToy"
+author = "wachel"
+
+[settings]
+
+[[ui]]
+type = "text"
+text = "There are no settings for this background"
+
+[resources]
+  [resources.shadertoy_shader]
+  type = "shader"
+  label = "ShaderToy Shader"
+  src = "shadertoy.glsl"
+  format = "glsl"
+  stage = "vertex"
+  vertex_main = "main"
+
+  [resources.render_shader]
+  type = "shader"
+  label = "Render Shader"
+  src = "desert.glsl"
+  format = "glsl"
+  stage = "fragment"
+  fragment_main = "main"
+
+[[render_passes]]
+type = "render"
+label = "Render"
+  [render_passes.pipeline]
+  shader_vertex = "shadertoy_shader"
+  shader_fragment = "render_shader"
+  bindings = ["shadertoy"]
+  bindings_visibility = ["Fragment"]
+  topology = "TriangleList"
+  polygon_mode = "Fill"
+  front_face = "Ccw"
+  cull_mode = "None"
+
+  [render_passes.pipeline.vertex]
+    stride = 16
+    step = "vertex"
+    [[render_passes.pipeline.vertex.attributes]]
+      offset = 0
+      location = 0
+      format = "Float32x2"
+    [[render_passes.pipeline.vertex.attributes]]
+      offset = 8
+      location = 1
+      format = "Float32x2"
+
+  [render_passes.clear]
+  colour = "#000000"
+
+  [[render_passes.draw]]
+  vertices = "Quad"

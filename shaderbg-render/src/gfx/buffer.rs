@@ -5,8 +5,8 @@ use crate::gfx::camera::Camera;
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Time {
-    time: u32,
-    dt: f32,
+    pub time: u32,
+    pub dt: f32,
 }
 
 impl Time {
@@ -27,6 +27,38 @@ impl Time {
                                  .as_millis() as u32
                          };*/
         self.dt = dt as f32;
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct ShaderToy {
+    resolution: [f32; 3],
+    _spacer: f32,
+    time: f32,
+    time_delta: f32,
+    _spacer2: f32,
+    _spacer3: f32,
+    mouse: [f32; 4],
+}
+
+impl ShaderToy {
+    pub fn new() -> Self {
+        ShaderToy {
+            resolution: [800.0, 600.0, 0.0],
+            _spacer: 0.0,
+            time: 0.0,
+            time_delta: 0.0,
+            _spacer2: 0.0,
+            _spacer3: 0.0,
+            mouse: [0.0; 4],
+        }
+    }
+
+    pub fn update(&mut self, now: u32, dt: f64, width: u32, height: u32) {
+        self.time = (now as f32) / 1000.0;
+        self.time_delta = dt as f32;
+        self.resolution = [width as f32, height as f32, 0.0];
     }
 }
 

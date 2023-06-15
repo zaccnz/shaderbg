@@ -15,7 +15,7 @@ use crate::{
     egui_tao,
 };
 use shaderbg_render::{
-    gfx::{self, Gfx, GfxContext},
+    gfx::{self, buffer::ShaderToy, Gfx, GfxContext},
     scene::{Resources, Setting},
 };
 
@@ -36,6 +36,7 @@ pub struct Window {
     resources: Resources,
     settings_open: bool,
     scene_ui: gfx::ui::Scene,
+    shadertoy: ShaderToy,
 }
 
 impl Window {
@@ -70,11 +71,14 @@ impl Window {
         let mut egui_platform = egui_tao::State::new(&window);
         egui_platform.set_pixels_per_point(window.scale_factor() as f32);
 
+        let shadertoy = ShaderToy::new();
+
         let resources = Resources::new(
             &app_state.get().scene,
             &gfx.device,
             &gfx.config,
             app_state.get().time,
+            shadertoy,
         )
         .unwrap();
 
@@ -88,6 +92,7 @@ impl Window {
             resources,
             settings_open: false,
             scene_ui,
+            shadertoy,
         }
     }
 
@@ -170,9 +175,15 @@ impl Window {
                     (state.scene.settings.clone(), state.time.clone())
                 };
 
+                let size = self.window.inner_size();
+
+                self.shadertoy
+                    .update(time.time, time.dt as f64, size.width, size.height);
+
                 let full_output = self.gfx.render(
                     Some(&mut self.resources),
                     time,
+                    self.shadertoy,
                     Some((
                         self.egui.pixels_per_point(),
                         self.egui.take_egui_input(&self.window),

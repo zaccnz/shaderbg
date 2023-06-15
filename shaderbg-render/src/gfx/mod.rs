@@ -2,11 +2,12 @@ use wgpu::{Device, Instance, Queue, Surface, SurfaceConfiguration};
 
 use crate::scene::Resources;
 
-use self::buffer::Time;
+use self::buffer::{ShaderToy, Time};
 
 pub mod buffer;
 pub mod camera;
 pub mod ui;
+pub mod vertices;
 pub use ui::Ui;
 
 // because we cannot create a surface on second thread,
@@ -108,6 +109,7 @@ impl Gfx {
         &mut self,
         scene: Option<&mut Resources>,
         time: Time,
+        shadertoy: ShaderToy,
         ui_input: Option<(f32, egui::RawInput)>, // f32 -> pixels_per_point
         ui_render: F,
     ) -> Option<egui::FullOutput> {
@@ -128,7 +130,7 @@ impl Gfx {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
         if let Some(scene) = scene {
-            scene.render(&self.queue, &view, &mut encoder, time);
+            scene.render(&self.queue, &view, &mut encoder, time, shadertoy);
         }
 
         let mut full_output = None;

@@ -9,7 +9,7 @@ use tao::{
 
 use crate::app::{AppEvent, AppState, WindowEvent};
 use shaderbg_render::{
-    gfx::{Gfx, GfxContext},
+    gfx::{buffer::ShaderToy, Gfx, GfxContext},
     scene::{Resources, Setting},
 };
 
@@ -167,11 +167,14 @@ impl Background {
         let size = self.window.inner_size();
         let mut gfx =
             pollster::block_on(Gfx::new(self.gfx_context, size.width, size.height, false));
+        let mut shadertoy = ShaderToy::new();
+
         let mut resources = Resources::new(
             &self.app_state.get().scene,
             &gfx.device,
             &gfx.config,
             self.app_state.get().time,
+            shadertoy,
         )
         .unwrap();
 
@@ -189,7 +192,9 @@ impl Background {
                         Event::MainEventsCleared => self.window.request_redraw(),
                         Event::RedrawEventsCleared => {
                             let time = { self.app_state.get().time.clone() };
-                            gfx.render(Some(&mut resources), time, None, |_| {});
+                            let size = self.window.inner_size();
+                            shadertoy.update(time.time, time.dt as f64, size.width, size.height);
+                            gfx.render(Some(&mut resources), time, shadertoy, None, |_| {});
                         }
                         _ => {}
                     },

@@ -138,7 +138,13 @@ pub struct RenderClear {
 #[derive(Clone, Debug, Deserialize)]
 pub struct RenderDraw {
     pub vertex_buffer: Option<String>,
+    pub vertices: Option<RenderVertices>,
     pub vertex_count: Option<u32>,
     // pub index_buffer: Option<String>,
     pub instances: Option<u32>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub enum RenderVertices {
+    Quad,
 }

@@ -16,7 +16,10 @@ mod io;
 fn main() {
     env_logger::init();
 
-    let scene = match Scene::load(PathBuf::from("scenes/waves")) {
+    //let scene_path = "scenes/shadertoy-ltcGDl";
+    let scene_path = "scenes/waves";
+
+    let scene = match Scene::load(PathBuf::from(scene_path)) {
         Ok(scene) => scene,
         Err(e) => panic!("{:?}", e),
     };

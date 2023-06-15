@@ -6,7 +6,11 @@ use std::{
 use web_time::{Instant, SystemTime};
 
 use shaderbg_render::{
-    gfx::{self, buffer::Time, Gfx, GfxContext},
+    gfx::{
+        self,
+        buffer::{ShaderToy, Time},
+        Gfx, GfxContext,
+    },
     scene::{Resources, Scene},
 };
 use winit::{
@@ -140,8 +144,9 @@ async fn run() {
     };
 
     let mut time = Time::new();
+    let mut shadertoy = ShaderToy::new();
 
-    let mut resources = Resources::new(&scene, &gfx.device, &gfx.config, time).unwrap();
+    let mut resources = Resources::new(&scene, &gfx.device, &gfx.config, time, shadertoy).unwrap();
     let mut last_frame = Instant::now();
     let started = SystemTime::now();
 
@@ -205,6 +210,8 @@ async fn run() {
                 let total_frame_time: f64 = frame_times.iter().sum();
                 let fps_average = frame_times.len() as f64 / total_frame_time;
                 time.update_time(now_u32, dt);
+                let size = window.inner_size();
+                shadertoy.update(now_u32, dt, size.width, size.height);
                 last_frame = now;
 
                 let mut changes = Vec::new();
@@ -212,6 +219,7 @@ async fn run() {
                 let full_output = gfx.render(
                     Some(&mut resources),
                     time,
+                    shadertoy,
                     Some((
                         egui_platform.pixels_per_point(),
                         egui_platform.take_egui_input(&window),

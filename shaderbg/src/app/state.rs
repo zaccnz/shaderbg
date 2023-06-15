@@ -13,7 +13,10 @@ use crate::{
     app::{AppEvent, AppEventSender, AppMessage},
     io::{Args, Config},
 };
-use shaderbg_render::{gfx::buffer::Time, scene::Scene};
+use shaderbg_render::{
+    gfx::buffer::{ShaderToy, Time},
+    scene::Scene,
+};
 
 pub struct State {
     pub config: Config,
