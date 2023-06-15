@@ -17,6 +17,7 @@ fn main() {
     env_logger::init();
 
     //let scene_path = "scenes/shadertoy-ltcGDl";
+    //let scene_path = "scenes/shadertoy-mdBSRt";
     let scene_path = "scenes/waves";
 
     let scene = match Scene::load(PathBuf::from(scene_path)) {

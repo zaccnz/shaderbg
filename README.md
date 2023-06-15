@@ -19,6 +19,7 @@ built to be cross-platform (Windows, macOS, Linux) using Rust.
 - not a web browser!
 - cross platform
   - only macOS at the moment, Windows eta July
+- compatible with ShaderToy
 - lightweight
 - configurable
 - portable
@@ -33,18 +34,20 @@ built to be cross-platform (Windows, macOS, Linux) using Rust.
 
 ### dependencies
 
+- [egui](https://crates.io/crates/egui) = "0.22.0"
+- [toml](https://crates.io/crates/toml) = "0.7.3"
+- [serde](https://crates.io/crates/serde) = "1.0"
+- [clap](https://crates.io/crates/clap) = "4.2.4", [log](https://crates.io/crates/log) = "0.4", [pollster](https://crates.io/crates/pollster/) = "0.3.0", [raw-window-handle](https://crates.io/crates/raw-window-handle) = "0.5"
 - **render**
-  - [wgpu](https://crates.io/crates/wgpu/) = "0.15.0"
-  - [egui](https://crates.io/crates/egui) = "0.22.0"
+  - [wgpu](https://crates.io/crates/wgpu/) = "0.16.1"
   - [egui-wgpu](https://crates.io/crates/egui-wgpu) = "0.22.0"
-  - [serde](https://crates.io/crates/serde) = "1.0"
-  - [toml](https://crates.io/crates/toml) = "0.7.3"
-  - [cgmath](https://crates.io/crates/cgmath) = "0.18", [clap](https://crates.io/crates/clap) = "4.2.4, [chrono](https://crates.io/crates/chrono) = "0.4.24", [bytemuck](https://crates.io/crates/bytemuck) = "1.12", [rand](https://crates.io/crates/rand) = "0.8.5", [hex_color](https://crates.io/crates/hex_color) = "2.0.0", [naga](https://crates.io/crates/naga) = "0.11.0", [raw-window-handle](https://crates.io/crates/raw-window-handle) = "0.5", [log](https://crates.io/crates/log) = "0.4
+  - [naga](https://crates.io/crates/naga) = "0.12.0"
+  - [cgmath](https://crates.io/crates/cgmath) = "0.18", [bytemuck](https://crates.io/crates/bytemuck) = "1.12", [rand](https://crates.io/crates/rand) = "0.8.5", [hex_color](https://crates.io/crates/hex_color) = "2.0.0"
 - **desktop**
-  - [tao](https://crates.io/crates/tao/) = "0.19.0"
+  - [tao](https://crates.io/crates/tao/) = "0.20.0"
   - [env_logger](https://crates.io/crates/env_logger/) = "0.10.0"
   - [image](https://crates.io/crates/image/) = "0.24.6"
-  - [pollster](https://crates.io/crates/pollster/) = "0.3.0"
+  - [chrono](https://crates.io/crates/chrono) = "0.4.24"
   - [webbrowser](https://crates.io/crates/webbrowser) = "0.8.10"
   - **macOS only:** [cocoa](https://crates.io/crates/cocoa) = "0.24", [objc](https://crates.io/crates/objc) = "0.2.2"
 - **web**

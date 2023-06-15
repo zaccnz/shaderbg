@@ -1,26 +1,3 @@
-// CHANGES REQUIRED for shaderbg support
-// note: another change at bottom of file
-in vec2 texCoord;
-layout(location = 0) out vec4 fragColor;
-
-struct ShaderToy 
-{
-    vec4 resolution;
-    float time;
-    float time_delta;
-    vec4 mouse;
-};
-
-layout(set = 0, binding = 0) uniform ShaderToy shadertoy;
-
-vec3 iResolution = shadertoy.resolution.xyz;
-float iTime = shadertoy.time;
-float iTimeDelta = shadertoy.time_delta;
-vec4 iMouse = shadertoy.mouse;
-
-vec2 fragCoord = vec2(gl_FragCoord.x, iResolution.y - gl_FragCoord.y);
-
-// ORIGINAL CODE from https://www.shadertoy.com/view/ltcGDl
 #define PI 3.14159265359
 
 
@@ -181,11 +158,4 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec3 col = render( vec3(time,1.8,0.0), rd );
     
     fragColor = vec4(col,1);
-}
-
-// CHANGES REQUIRED for shaderbg support
-// map entrypoint
-void main()
-{
-    mainImage(fragColor, fragCoord);
 }

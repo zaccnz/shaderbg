@@ -1,0 +1,45 @@
+# ShaderToy Demo Scene
+[meta]
+name = "Tiles"
+version = "1.0"
+description = "tiles, interesting patterns - ShaderToy"
+author = "Johnrobmiller"
+
+[settings]
+  [settings.tile_colour]
+  type = "colour3"
+  label = "Tile Colour"
+  value = "#ffffff"
+  [settings.tile_speed]
+  type = "float"
+  label = "Speed"
+  value = 0.25
+  min = 0.0
+  max = 1.0
+
+[[ui]]
+type = "setting"
+setting = "tile_colour"
+[[ui]]
+type = "setting"
+setting = "tile_speed"
+
+[resources]
+  [resources.shadertoy]
+  type = "shader_toy"
+  label = "Tiles ShaderToy"
+  src = "tiles.glsl"
+  
+  [resources.render_params]
+  type = "uniform"
+  label = "Render Param Buffer"
+  values = [
+      "tile_colour",
+      "tile_speed",
+  ]
+
+[[render_passes]]
+type = "shader_toy"
+label = "Render Tiles"
+source = "shadertoy"
+bindings = ["render_params"]

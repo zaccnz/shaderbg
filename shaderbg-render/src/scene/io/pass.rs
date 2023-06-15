@@ -17,6 +17,11 @@ pub enum RenderPass {
         clear: Option<RenderClear>,
         draw: Vec<RenderDraw>,
     },
+    ShaderToy {
+        label: Option<String>,
+        source: String,
+        bindings: Option<Vec<String>>,
+    },
 }
 
 #[derive(Debug, Deserialize)]
@@ -138,13 +143,7 @@ pub struct RenderClear {
 #[derive(Clone, Debug, Deserialize)]
 pub struct RenderDraw {
     pub vertex_buffer: Option<String>,
-    pub vertices: Option<RenderVertices>,
     pub vertex_count: Option<u32>,
     // pub index_buffer: Option<String>,
     pub instances: Option<u32>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-pub enum RenderVertices {
-    Quad,
 }

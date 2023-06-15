@@ -23,10 +23,7 @@ use crate::{
     },
     scene::{
         io::{
-            pass::{
-                RenderClear, RenderDraw, RenderPass, RenderPipelineBindingVisibility,
-                RenderVertices,
-            },
+            pass::{RenderClear, RenderDraw, RenderPass, RenderPipelineBindingVisibility},
             resource::{
                 BufferStorage, BufferStorageType, BufferVertex, BufferVertexAttribute,
                 BufferVertexAttributeFormat, BufferVertexStep, Resource, ShaderFormat,
@@ -35,14 +32,6 @@ use crate::{
         Scene, Setting,
     },
 };
-
-#[derive(Debug, PartialEq)]
-enum ResourceType {
-    Buffer,
-    Camera,
-    Shader,
-    Uniform,
-}
 
 #[allow(dead_code)]
 struct BufferResource {
@@ -73,6 +62,11 @@ enum PassResource {
         #[allow(dead_code)]
         clear: Option<RenderClear>,
         draw: Vec<RenderDraw>,
+    },
+    ShaderToy {
+        label: Option<String>,
+        pipeline: RenderPipeline,
+        bind_group: BindGroup,
     },
 }
 
@@ -427,6 +421,59 @@ impl Resources {
                         },
                     );
                 }
+                Resource::ShaderToy { label, .. } => {
+                    let shader_source = scene
+                        .files
+                        .get(id)
+                        .expect(format!("Shader source for {} was not loaded", id).as_str());
+
+                    let shader_source_string = match std::str::from_utf8(shader_source.as_slice()) {
+                        Ok(string) => string,
+                        Err(error) => return Err(ResourceError::InvalidShaderUtf8(error)),
+                    };
+
+                    let shader_harness = include_str!("../shadertoy/fragment.glsl");
+
+                    let full_source_string =
+                        shader_harness.replace("{{SOURCE}}", shader_source_string);
+
+                    let module = device.create_shader_module(ShaderModuleDescriptor {
+                        label: label.as_deref(),
+                        source: wgpu::ShaderSource::Glsl {
+                            shader: Cow::Owned(full_source_string),
+                            stage: naga::ShaderStage::Fragment,
+                            defines: Default::default(),
+                        },
+                    });
+                    shaders.insert(
+                        id.clone(),
+                        ShaderResource {
+                            module,
+                            entry: None,
+                            vertex_entry: None,
+                            fragment_entry: Some("main".to_string()),
+                        },
+                    );
+                    let module = device.create_shader_module(ShaderModuleDescriptor {
+                        label: label.as_deref(),
+                        source: wgpu::ShaderSource::Glsl {
+                            shader: Cow::Owned(
+                                include_str!("../shadertoy/vertex.glsl").to_string(),
+                            ),
+                            stage: naga::ShaderStage::Vertex,
+                            defines: Default::default(),
+                        },
+                    });
+                    shaders.insert(
+                        "shadertoy_vertex_shader".to_string(),
+                        ShaderResource {
+                            module,
+                            entry: None,
+                            vertex_entry: Some("main".to_string()),
+                            fragment_entry: None,
+                        },
+                    );
+                }
             }
         }
 
@@ -442,10 +489,13 @@ impl Resources {
         for pass in descriptor.render_passes.iter() {
             let pass_resource = match pass {
                 RenderPass::Compute { .. } => {
-                    resources.build_compute_pipeline(scene, pass, device, &shaders)?
+                    resources.build_compute_pipeline(pass, device, &shaders)?
                 }
                 RenderPass::Render { .. } => {
-                    resources.build_render_pipeline(scene, pass, device, config, &shaders)?
+                    resources.build_render_pipeline(pass, device, config, &shaders)?
+                }
+                RenderPass::ShaderToy { .. } => {
+                    resources.build_shadertoy_pipeline(pass, device, config, &shaders)?
                 }
             };
             resources.passes.push(pass_resource);
@@ -454,45 +504,21 @@ impl Resources {
         Ok(resources)
     }
 
-    fn validate_resource(
-        resource: &Resource,
-        resource_type: ResourceType,
-        id: &String,
-    ) -> Result<(), ResourceError> {
-        let check_type = |provided: ResourceType| {
-            if resource_type == provided {
-                Ok(())
-            } else {
-                Err(ResourceError::IncorrectResource {
-                    id: id.clone(),
-                    expected: format!("{:?}", resource_type).to_string(),
-                    actual: format!("{:?}", provided).to_string(),
-                })
-            }
-        };
-
-        match resource {
-            Resource::Buffer { .. } => check_type(ResourceType::Buffer),
-            Resource::Camera { .. } => check_type(ResourceType::Camera),
-            Resource::Shader { .. } => check_type(ResourceType::Shader),
-            Resource::Uniform { .. } => check_type(ResourceType::Uniform),
-        }
-    }
-
     fn get_shader_and_entrypoint<'a>(
         id: &String,
         entrypoint_type: ShaderEntrypointType,
-        scene: &Scene,
         shaders: &'a HashMap<String, ShaderResource>,
     ) -> Result<(&'a ShaderModule, String), ResourceError> {
-        let shader_resource = scene
-            .descriptor
-            .resources
-            .get(&id)
-            .expect("Shader went missing");
+        /* why did i bother doing this?
 
-        Resources::validate_resource(shader_resource, ResourceType::Shader, id)?;
+                let shader_resource = scene
+                    .descriptor
+                    .resources
+                    .get(&id)
+                    .expect("Shader went missing");
 
+                Resources::validate_resource(shader_resource, ResourceType::Shader, id)?;
+        */
         let shader = match shaders.get(id) {
             Some(shader) => shader,
             None => panic!("Shader {} was not initialized", id),
@@ -628,7 +654,6 @@ impl Resources {
 
     fn build_compute_pipeline(
         &self,
-        scene: &Scene,
         pass: &RenderPass,
         device: &Device,
         shaders: &HashMap<String, ShaderResource>,
@@ -639,7 +664,7 @@ impl Resources {
                 pipeline,
                 workgroups,
             } => (label, pipeline, workgroups),
-            RenderPass::Render { .. } => panic!("how did we get here"),
+            _ => panic!("how did we get here"),
         };
 
         let (bind_group_layout, bind_group) =
@@ -657,7 +682,6 @@ impl Resources {
         let (shader, entry_point) = Resources::get_shader_and_entrypoint(
             &pipeline.shader,
             ShaderEntrypointType::COMPUTE,
-            scene,
             &shaders,
         )?;
 
@@ -678,7 +702,6 @@ impl Resources {
 
     fn build_render_pipeline(
         &mut self,
-        scene: &Scene,
         pass: &RenderPass,
         device: &Device,
         config: &SurfaceConfiguration,
@@ -691,7 +714,7 @@ impl Resources {
                 clear,
                 draw,
             } => (label, pipeline, clear, draw),
-            RenderPass::Compute { .. } => panic!("how did we get here"),
+            _ => panic!("how did we get here"),
         };
 
         if pipeline.bindings.as_ref().map(|vec| vec.len())
@@ -722,7 +745,6 @@ impl Resources {
         let (shader, vertex_entry) = Resources::get_shader_and_entrypoint(
             &pipeline.shader_vertex,
             ShaderEntrypointType::VERTEX,
-            scene,
             &shaders,
         )?;
 
@@ -730,7 +752,6 @@ impl Resources {
             let (module, entry_point) = Resources::get_shader_and_entrypoint(
                 shader,
                 ShaderEntrypointType::FRAGMENT,
-                scene,
                 &shaders,
             )?;
 
@@ -751,41 +772,6 @@ impl Resources {
         if let Some(vertex) = pipeline.vertex.as_ref() {
             attributes.extend(vertex.attributes().iter());
             buffers.push(vertex.desc(attributes.as_slice()));
-        }
-
-        for draw in draw {
-            if let Some(vertices) = draw.vertices.as_ref() {
-                match vertices {
-                    RenderVertices::Quad => self.buffers.insert(
-                        "quad".to_string(),
-                        BufferResource {
-                            buffer: device.create_buffer_init(&BufferInitDescriptor {
-                                label: Some("Quad Buffer"),
-                                contents: bytemuck::cast_slice(VERTICES_QUAD),
-                                usage: BufferUsages::VERTEX,
-                            }),
-                            vertex: Some(BufferVertex {
-                                stride: 16,
-                                step: Some(BufferVertexStep::Vertex),
-                                attributes: vec![
-                                    BufferVertexAttribute {
-                                        offset: 0,
-                                        location: 0,
-                                        format: BufferVertexAttributeFormat::Float32x2,
-                                    },
-                                    BufferVertexAttribute {
-                                        offset: 8,
-                                        location: 1,
-                                        format: BufferVertexAttributeFormat::Float32x2,
-                                    },
-                                ],
-                            }),
-                            vertex_count: Some(6),
-                            storage: None,
-                        },
-                    ),
-                };
-            }
         }
 
         let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
@@ -834,6 +820,144 @@ impl Resources {
             bind_group,
             clear: clear.clone(),
             draw: draw.clone(),
+        })
+    }
+
+    fn build_shadertoy_pipeline(
+        &mut self,
+        pass: &RenderPass,
+        device: &Device,
+        config: &SurfaceConfiguration,
+        shaders: &HashMap<String, ShaderResource>,
+    ) -> Result<PassResource, ResourceError> {
+        let (label, source, additional_bindings) = match pass {
+            RenderPass::ShaderToy {
+                label,
+                source,
+                bindings,
+            } => (label, source, bindings),
+            _ => panic!("how did we get here"),
+        };
+
+        let mut bindings = vec!["shadertoy".to_string()];
+        if let Some(additional_bindings) = additional_bindings {
+            for binding in additional_bindings {
+                bindings.push(binding.to_owned());
+            }
+        }
+
+        let bindings_visibility = bindings
+            .iter()
+            .map(|_| RenderPipelineBindingVisibility::Fragment)
+            .collect();
+
+        let (bind_group_layout, bind_group) =
+            self.build_bind_group(label, Some(&bindings), Some(&bindings_visibility), device)?;
+
+        let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
+            label: label
+                .clone()
+                .map(|s| format!("{} (Pipeline Layout)", s))
+                .as_deref(),
+            bind_group_layouts: &[&bind_group_layout],
+            push_constant_ranges: &[],
+        });
+
+        let (shader, vertex_entry) = Resources::get_shader_and_entrypoint(
+            &"shadertoy_vertex_shader".to_string(),
+            ShaderEntrypointType::VERTEX,
+            &shaders,
+        )?;
+
+        let (fragment_module, fragment_entry_point) =
+            Resources::get_shader_and_entrypoint(source, ShaderEntrypointType::FRAGMENT, &shaders)?;
+
+        let targets = [Some(ColorTargetState {
+            format: config.format,
+            blend: Some(BlendState::REPLACE),
+            write_mask: ColorWrites::ALL,
+        })];
+
+        let quad_buffer = BufferResource {
+            buffer: device.create_buffer_init(&BufferInitDescriptor {
+                label: Some("Quad Buffer"),
+                contents: bytemuck::cast_slice(VERTICES_QUAD),
+                usage: BufferUsages::VERTEX,
+            }),
+            vertex: Some(BufferVertex {
+                stride: 16,
+                step: Some(BufferVertexStep::Vertex),
+                attributes: vec![
+                    BufferVertexAttribute {
+                        offset: 0,
+                        location: 0,
+                        format: BufferVertexAttributeFormat::Float32x2,
+                    },
+                    BufferVertexAttribute {
+                        offset: 8,
+                        location: 1,
+                        format: BufferVertexAttributeFormat::Float32x2,
+                    },
+                ],
+            }),
+            vertex_count: Some(6),
+            storage: None,
+        };
+
+        self.buffers
+            .insert("shadertoy_quad".to_string(), quad_buffer);
+
+        let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
+            label: label.as_deref(),
+            layout: Some(&pipeline_layout),
+
+            vertex: VertexState {
+                module: &shader,
+                entry_point: vertex_entry.deref(),
+                buffers: &[VertexBufferLayout {
+                    array_stride: 16,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &[
+                        VertexAttribute {
+                            offset: 0,
+                            shader_location: 0,
+                            format: wgpu::VertexFormat::Float32x2,
+                        },
+                        VertexAttribute {
+                            offset: 8,
+                            shader_location: 1,
+                            format: wgpu::VertexFormat::Float32x2,
+                        },
+                    ],
+                }],
+            },
+            fragment: Some(FragmentState {
+                module: fragment_module,
+                entry_point: fragment_entry_point.as_str(),
+                targets: &targets,
+            }),
+            primitive: PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            multiview: None,
+        });
+
+        Ok(PassResource::ShaderToy {
+            label: label.clone(),
+            pipeline: render_pipeline,
+            bind_group,
         })
     }
 
@@ -965,20 +1089,46 @@ impl Resources {
                                 .expect("Vertex buffer has no vertex count");
                         }
 
-                        if let Some(vertices_type) = draw.vertices.as_ref() {
-                            match vertices_type {
-                                RenderVertices::Quad => {
-                                    let vertex_buffer = self.buffers.get("quad").unwrap();
-                                    rpass.set_vertex_buffer(0, vertex_buffer.buffer.slice(..));
-                                    vertices = vertex_buffer
-                                        .vertex_count
-                                        .expect("Quad buffer has no vertex count");
-                                }
-                            }
-                        }
-
                         rpass.draw(0..vertices, 0..instances);
                     }
+
+                    drop(rpass);
+
+                    if let Some(_) = label {
+                        encoder.pop_debug_group();
+                    }
+                }
+                PassResource::ShaderToy {
+                    label,
+                    pipeline,
+                    bind_group,
+                } => {
+                    if let Some(label) = label {
+                        encoder.push_debug_group(label);
+                    }
+
+                    let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                        label: Some("Scene Pass"),
+                        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                            view: &view,
+                            resolve_target: None,
+                            ops: wgpu::Operations {
+                                load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                                store: true,
+                            },
+                        })],
+                        depth_stencil_attachment: None,
+                    });
+
+                    rpass.set_pipeline(pipeline);
+                    rpass.set_bind_group(0, bind_group, &[]);
+
+                    let vertex_buffer = self.buffers.get("shadertoy_quad").unwrap();
+                    rpass.set_vertex_buffer(0, vertex_buffer.buffer.slice(..));
+                    let vertices = vertex_buffer
+                        .vertex_count
+                        .expect("Quad buffer has no vertex count");
+                    rpass.draw(0..vertices, 0..1);
 
                     drop(rpass);
 

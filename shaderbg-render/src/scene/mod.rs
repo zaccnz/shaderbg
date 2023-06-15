@@ -57,7 +57,7 @@ impl Scene {
 
         for (id, resource) in descriptor.resources.iter() {
             match resource {
-                Resource::Shader { src, .. } => {
+                Resource::Shader { src, .. } | Resource::ShaderToy { src, .. } => {
                     let path = path.join(src);
                     let content = match fs::read(path) {
                         Ok(content) => content,

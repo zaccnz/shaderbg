@@ -32,6 +32,10 @@ pub enum Resource {
         vertex_main: Option<String>,
         fragment_main: Option<String>,
     },
+    ShaderToy {
+        src: String,
+        label: Option<String>,
+    },
     Uniform {
         label: Option<String>,
         values: Vec<String>,
