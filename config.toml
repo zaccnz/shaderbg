@@ -1,5 +1,18 @@
 background = false
 window = true
 tray = false
+scene = "waves"
 scene_dir = "./scene/"
 launch_on_startup = false
+
+[[recent_scenes]]
+scene = "waves"
+last_used = "2023-06-17T14:43:10.703119Z"
+
+[[recent_scenes]]
+scene = "shadertoy-ltcGDl"
+last_used = "2023-06-17T14:42:31.563217Z"
+
+[[recent_scenes]]
+scene = "shadertoy-mdBSRt"
+last_used = "2023-06-17T14:40:50.148504Z"

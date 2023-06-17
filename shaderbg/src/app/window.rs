@@ -33,9 +33,8 @@ pub struct Window {
     #[allow(dead_code)]
     app_state: AppState,
     egui: egui_tao::State,
-    resources: Resources,
-    settings_open: bool,
-    scene_ui: gfx::ui::Scene,
+    resources: Option<Resources>,
+    scene_ui: Option<gfx::ui::Scene>,
     shadertoy: ShaderToy,
 }
 
@@ -73,16 +72,20 @@ impl Window {
 
         let shadertoy = ShaderToy::new();
 
-        let resources = Resources::new(
-            &app_state.get().scene,
-            &gfx.device,
-            &gfx.config,
-            app_state.get().time,
-            shadertoy,
-        )
-        .unwrap();
-
-        let scene_ui = gfx::ui::Scene::new(&app_state.get().scene.descriptor);
+        let resources = if let Some(scene) = app_state.get().scene() {
+            Some(
+                Resources::new(
+                    scene,
+                    &gfx.device,
+                    &gfx.config,
+                    app_state.get().time,
+                    shadertoy,
+                )
+                .unwrap(),
+            )
+        } else {
+            None
+        };
 
         Window {
             window,
@@ -90,14 +93,15 @@ impl Window {
             app_state,
             egui: egui_platform,
             resources,
-            settings_open: false,
-            scene_ui,
+            scene_ui: None,
             shadertoy,
         }
     }
 
     pub fn update_setting(&mut self, key: String, value: Setting) {
-        self.resources.update_setting(key, value);
+        if let Some(resources) = self.resources.as_mut() {
+            resources.update_setting(key, value);
+        }
     }
 
     pub fn get_window_id(&self) -> WindowId {
@@ -172,7 +176,10 @@ impl Window {
                 let mut changes = Vec::new();
                 let (settings, time) = {
                     let state = self.app_state.get();
-                    (state.scene.settings.clone(), state.time.clone())
+                    (
+                        state.scene().map(|scene| scene.settings.clone()),
+                        state.time.clone(),
+                    )
                 };
 
                 let size = self.window.inner_size();
@@ -181,7 +188,7 @@ impl Window {
                     .update(time.time, time.dt as f64, size.width, size.height);
 
                 let full_output = self.gfx.render(
-                    Some(&mut self.resources),
+                    self.resources.as_mut(),
                     time,
                     self.shadertoy,
                     Some((
@@ -194,35 +201,48 @@ impl Window {
                             .resizable(false)
                             .title_bar(false)
                             .show(ctx, |ui| {
-                                ui.heading(RichText::new("Current Scene").strong());
-                                ui.horizontal(|ui| {
-                                    ui.label(
-                                        RichText::new(
-                                            self.app_state.get().scene.descriptor.meta.name.clone(),
-                                        )
-                                        .strong(),
-                                    );
+                                if let Some(scene) = self.app_state.get().scene() {
+                                    ui.heading(RichText::new("Current Scene").strong());
+                                    ui.horizontal(|ui| {
+                                        ui.label(
+                                            RichText::new(scene.descriptor.meta.name.clone())
+                                                .strong(),
+                                        );
 
-                                    ui.label(format!(
-                                        "({})",
-                                        self.app_state.get().scene.descriptor.meta.version.clone()
-                                    ));
-                                });
-                                if ui.button("Scene Settings").clicked() {
-                                    self.settings_open = true;
-                                    self.scene_ui.load_settings(&self.app_state.get().scene);
+                                        ui.label(format!(
+                                            "({})",
+                                            scene.descriptor.meta.version.clone()
+                                        ));
+                                    });
+                                    if ui.button("Scene Settings").clicked() {
+                                        self.scene_ui = Some(gfx::ui::Scene::new(
+                                            &scene.descriptor,
+                                            &scene.settings,
+                                        ));
+                                    }
+                                } else {
+                                    ui.heading("No Scene Loaded");
                                 }
                             });
 
-                        let mut open = self.settings_open;
-                        egui::Window::new("Scene Settings")
-                            .open(&mut open)
-                            .resizable(false)
-                            .show(ctx, |ui| {
-                                self.settings_open =
-                                    self.scene_ui.render(ui, settings, &mut changes);
-                            });
-                        self.settings_open &= open;
+                        let mut open = true;
+                        let mut win_open = true;
+
+                        if let Some(scene_ui) = self.scene_ui.as_mut() {
+                            egui::Window::new("Scene Settings")
+                                .open(&mut win_open)
+                                .resizable(false)
+                                .show(ctx, |ui| {
+                                    if let Some(settings) = settings {
+                                        open = scene_ui.render(ui, settings, &mut changes);
+                                    } else {
+                                        ui.heading("An error occurred");
+                                    }
+                                });
+                        }
+                        if !open || !win_open {
+                            self.scene_ui.take();
+                        }
                     },
                 );
 
@@ -251,10 +271,36 @@ impl Window {
     pub fn open_ui_window(&mut self, window: Windows) {
         match window {
             Windows::SceneBrowser => todo!(),
-            Windows::SceneSettings => self.settings_open = true,
+            Windows::SceneSettings => {
+                if let Some(scene) = self.app_state.get().scene() {
+                    self.scene_ui = Some(gfx::ui::Scene::new(&scene.descriptor, &scene.settings));
+                }
+            }
             Windows::Settings => todo!(),
             Windows::Performance => todo!(),
         }
+    }
+
+    pub fn rebuild_menus(&mut self, menu_builder: &mut MenuBuilder) {
+        let menu = menu_builder.build_window_menu();
+        self.window.set_menu(Some(menu));
+    }
+
+    pub fn scene_changed(&mut self) {
+        self.resources = if let Some(scene) = self.app_state.get().scene() {
+            Some(
+                Resources::new(
+                    scene,
+                    &self.gfx.device,
+                    &self.gfx.config,
+                    self.app_state.get().time,
+                    self.shadertoy,
+                )
+                .unwrap(),
+            )
+        } else {
+            None
+        };
     }
 
     pub fn will_close(&self, event_loop: &EventLoopWindowTarget<WindowEvent>) {

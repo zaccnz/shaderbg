@@ -22,6 +22,8 @@ pub enum WindowEvent {
     StopBackground,
     SettingUpdated(String, Setting),
     OpenUiWindow(Windows),
+    RebuildMenus,
+    SceneChanged,
     Quit,
 }
 
@@ -159,6 +161,19 @@ impl WindowThread {
 
                         if let Some(window) = self.window.as_mut() {
                             window.open_ui_window(ui_window);
+                        }
+                    }
+                    WindowEvent::RebuildMenus => {
+                        if let Some(window) = self.window.as_mut() {
+                            window.rebuild_menus(&mut menu_builder);
+                        }
+                        if let Some(tray) = self.tray.as_mut() {
+                            tray.rebuild_menus(&mut menu_builder);
+                        }
+                    }
+                    WindowEvent::SceneChanged => {
+                        if let Some(window) = self.window.as_mut() {
+                            window.scene_changed();
                         }
                     }
                 },

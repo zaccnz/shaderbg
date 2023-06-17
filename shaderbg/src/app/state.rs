@@ -11,7 +11,10 @@ use std::sync::{
 
 use crate::{
     app::{AppEvent, AppEventSender, AppMessage},
-    io::{Args, Config},
+    io::{
+        scenes::{load_scenes, SceneEntry},
+        Args, Config,
+    },
 };
 use shaderbg_render::{gfx::buffer::Time, scene::Scene};
 
@@ -20,21 +23,109 @@ pub struct State {
     pub window_open: bool,
     pub tray_open: bool,
     pub background_open: bool,
-    pub scene: Scene,
+    pub scenes: Box<[SceneEntry]>,
+    current_scene: Option<usize>,
     pub time: Time,
 }
 
 impl State {
-    // todo: try and find scene in some list of loaded scenes
-    // return error if scene not found
-    pub fn new(args: Args, config: Config, scene: Scene) -> State {
+    pub fn new(args: Args, mut config: Config) -> State {
+        let scenes = load_scenes("scenes".to_string());
+
+        // find current scene
+        let mut current_scene = None;
+
+        // 1. check args
+        if let Some(scene_name) = args.scene {
+            current_scene = scenes
+                .iter()
+                .position(|entry| entry.name == scene_name.clone().into());
+        }
+
+        // 2. check config
+        if current_scene.is_none() {
+            if let Some(scene) = config.scene.clone() {
+                current_scene = scenes
+                    .iter()
+                    .position(|entry| entry.name == scene.clone().into());
+            }
+        }
+
+        // 3. check config recent
+        if current_scene.is_none() {
+            let most_recent_scene = config
+                .recent_scenes
+                .iter()
+                .max_by_key(|search| search.last_used);
+
+            if let Some(most_recent_scene) = most_recent_scene {
+                current_scene = scenes
+                    .iter()
+                    .position(|entry| entry.name == most_recent_scene.scene.clone().into());
+            }
+        }
+
+        if let Some(current_scene) = current_scene {
+            let name = scenes[current_scene].name.clone().into_string();
+            config.scene = Some(name.clone());
+            config.push_recent_scene(name);
+        }
+
         State {
-            config: config.clone(),
             window_open: args.window.unwrap_or(config.window),
             tray_open: args.tray.unwrap_or(config.tray),
             background_open: args.background.unwrap_or(config.background),
-            scene,
+            config: config,
+            scenes,
+            current_scene,
             time: Time::new(),
+        }
+    }
+
+    pub fn scene(&self) -> Option<&Scene> {
+        match self.current_scene {
+            Some(index) => {
+                if index < self.scenes.len() {
+                    Some(&self.scenes[index].scene)
+                } else {
+                    None
+                }
+            }
+            None => None,
+        }
+    }
+
+    pub fn scene_mut(&mut self) -> Option<&mut Scene> {
+        match self.current_scene {
+            Some(index) => {
+                if index < self.scenes.len() {
+                    Some(&mut self.scenes[index].scene)
+                } else {
+                    None
+                }
+            }
+            None => None,
+        }
+    }
+
+    pub fn get_scene(&self, scene: String) -> Option<&Scene> {
+        self.scenes
+            .iter()
+            .find(|entry| entry.name == scene.clone().into())
+            .map(|entry| &entry.scene)
+    }
+
+    pub fn set_scene(&mut self, scene: String) -> bool {
+        let index = self
+            .scenes
+            .iter()
+            .position(|entry| entry.name == scene.clone().into());
+
+        if let Some(index) = index {
+            self.current_scene = Some(index);
+            true
+        } else {
+            false
         }
     }
 }

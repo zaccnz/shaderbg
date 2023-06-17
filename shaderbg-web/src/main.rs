@@ -22,8 +22,7 @@ use winit::{
 
 fn demo_ui(
     ui: &mut egui::Ui,
-    settings_open: &mut bool,
-    scene_ui: &mut gfx::ui::Scene,
+    scene_ui: &mut Option<gfx::ui::Scene>,
     scene: &Scene,
     fps_average: f64,
 ) {
@@ -35,8 +34,7 @@ fn demo_ui(
         );
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if ui.button("Settings").clicked() {
-                scene_ui.load_settings(scene);
-                *settings_open = true;
+                *scene_ui = Some(gfx::ui::Scene::new(&scene.descriptor, &scene.settings));
             };
         });
     });
@@ -150,9 +148,7 @@ async fn run() {
     let mut last_frame = Instant::now();
     let started = SystemTime::now();
 
-    let mut settings_open = false;
-
-    let mut scene_ui = gfx::ui::Scene::new(&scene.descriptor);
+    let mut scene_ui = None;
 
     let mut frame_times = VecDeque::new();
 
@@ -229,20 +225,23 @@ async fn run() {
                             .movable(false)
                             .resizable(false)
                             .show(ctx, |ui| {
-                                demo_ui(ui, &mut settings_open, &mut scene_ui, &scene, fps_average);
+                                demo_ui(ui, &mut scene_ui, &scene, fps_average);
                             });
 
-                        let mut open = settings_open;
-
-                        egui::Window::new("Scene Settings")
-                            .open(&mut open)
-                            .resizable(false)
-                            .show(ctx, |ui| {
-                                settings_open =
-                                    scene_ui.render(ui, scene.settings.clone(), &mut changes);
-                            });
-
-                        settings_open &= open;
+                        let mut open = true;
+                        let mut win_open = true;
+                        if let Some(scene_ui) = scene_ui.as_mut() {
+                            egui::Window::new("Scene Settings")
+                                .open(&mut win_open)
+                                .resizable(false)
+                                .show(ctx, |ui| {
+                                    open =
+                                        scene_ui.render(ui, scene.settings.clone(), &mut changes);
+                                });
+                        }
+                        if !open || !win_open {
+                            scene_ui.take();
+                        }
                     },
                 );
 

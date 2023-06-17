@@ -3,16 +3,18 @@
  */
 
 use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
 
 const CONFIG_FILE: &str = "config.toml";
+const MAX_RECENT_SCENES: usize = 10;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct RecentScene {
-    scene: String,
-    last_used: chrono::DateTime<chrono::Utc>,
+    pub scene: String,
+    pub last_used: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct Config {
     pub background: bool,
     pub window: bool,
@@ -20,6 +22,7 @@ pub struct Config {
     pub scene: Option<String>,
     pub scene_dir: std::path::PathBuf,
     pub launch_on_startup: bool,
+    pub recent_scenes: VecDeque<RecentScene>,
 }
 
 impl Config {
@@ -31,6 +34,7 @@ impl Config {
             scene: None,
             scene_dir: std::path::PathBuf::from("./scene/"),
             launch_on_startup: false,
+            recent_scenes: VecDeque::new(),
         }
     }
 
@@ -57,6 +61,26 @@ impl Config {
         match std::fs::write(CONFIG_FILE, config_string) {
             Ok(()) => Ok(()),
             Err(e) => return Err(e.to_string()),
+        }
+    }
+
+    pub fn push_recent_scene(&mut self, scene: String) {
+        let existing = self
+            .recent_scenes
+            .iter()
+            .position(|entry| entry.scene == scene.clone());
+
+        if let Some(existing) = existing {
+            self.recent_scenes.remove(existing);
+        }
+
+        self.recent_scenes.push_front(RecentScene {
+            scene,
+            last_used: chrono::Utc::now(),
+        });
+
+        if self.recent_scenes.len() > MAX_RECENT_SCENES {
+            self.recent_scenes.pop_back();
         }
     }
 }

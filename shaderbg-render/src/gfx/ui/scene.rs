@@ -26,7 +26,7 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn new(descriptor: &Descriptor) -> Scene {
+    pub fn new(descriptor: &Descriptor, settings: &Settings) -> Scene {
         let mut elements = Vec::new();
 
         for ui_desc in descriptor.ui.iter() {
@@ -42,16 +42,16 @@ impl Scene {
             }
         }
 
+        let mut original_values = HashMap::new();
+
+        for (key, value) in settings.iter() {
+            original_values.insert(key.clone(), value.clone());
+        }
+
         Scene {
             setting_descriptors: descriptor.settings.clone(),
             elements,
-            original_values: HashMap::new(),
-        }
-    }
-
-    pub fn load_settings(&mut self, scene: &crate::scene::Scene) {
-        for (key, value) in scene.settings.iter() {
-            self.original_values.insert(key.clone(), value.clone());
+            original_values,
         }
     }
 

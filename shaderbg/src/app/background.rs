@@ -17,6 +17,7 @@ use shaderbg_render::{
 pub enum BackgroundEvent {
     TaoEvent(Event<'static, WindowEvent>),
     SettingUpdated(String, Setting),
+    SceneChanged,
 }
 
 pub struct Background {
@@ -169,14 +170,20 @@ impl Background {
             pollster::block_on(Gfx::new(self.gfx_context, size.width, size.height, false));
         let mut shadertoy = ShaderToy::new();
 
-        let mut resources = Resources::new(
-            &self.app_state.get().scene,
-            &gfx.device,
-            &gfx.config,
-            self.app_state.get().time,
-            shadertoy,
-        )
-        .unwrap();
+        let mut resources = if let Some(scene) = self.app_state.get().scene() {
+            Some(
+                Resources::new(
+                    &scene,
+                    &gfx.device,
+                    &gfx.config,
+                    self.app_state.get().time,
+                    shadertoy,
+                )
+                .unwrap(),
+            )
+        } else {
+            None
+        };
 
         loop {
             match rx.recv() {
@@ -194,12 +201,30 @@ impl Background {
                             let time = { self.app_state.get().time.clone() };
                             let size = self.window.inner_size();
                             shadertoy.update(time.time, time.dt as f64, size.width, size.height);
-                            gfx.render(Some(&mut resources), time, shadertoy, None, |_| {});
+                            gfx.render(resources.as_mut(), time, shadertoy, None, |_| {});
                         }
                         _ => {}
                     },
                     BackgroundEvent::SettingUpdated(key, value) => {
-                        resources.update_setting(key, value);
+                        if let Some(resources) = resources.as_mut() {
+                            resources.update_setting(key, value);
+                        }
+                    }
+                    BackgroundEvent::SceneChanged => {
+                        resources = if let Some(scene) = self.app_state.get().scene() {
+                            Some(
+                                Resources::new(
+                                    &scene,
+                                    &gfx.device,
+                                    &gfx.config,
+                                    self.app_state.get().time,
+                                    shadertoy,
+                                )
+                                .unwrap(),
+                            )
+                        } else {
+                            None
+                        };
                     }
                 },
                 _ => {}

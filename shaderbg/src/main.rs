@@ -2,12 +2,9 @@
  * App entrypoint
  */
 use clap::Parser;
-use std::path::PathBuf;
 #[cfg(target_os = "macos")]
 #[macro_use]
 extern crate objc;
-
-use shaderbg_render::scene::Scene;
 
 mod app;
 pub mod egui_tao;
@@ -18,12 +15,7 @@ fn main() {
 
     //let scene_path = "scenes/shadertoy-ltcGDl";
     //let scene_path = "scenes/shadertoy-mdBSRt";
-    let scene_path = "scenes/waves";
-
-    let scene = match Scene::load(PathBuf::from(scene_path)) {
-        Ok(scene) => scene,
-        Err(e) => panic!("{:?}", e),
-    };
+    //let scene_path = "scenes/waves";
 
     let args = io::Args::parse();
 
@@ -42,7 +34,7 @@ fn main() {
 
     let (win_thread, event_loop) = app::WindowThread::build();
 
-    let (app_state, handle) = app::start_main(args, config, scene, event_loop.create_proxy());
+    let (app_state, handle) = app::start_main(args, config, event_loop.create_proxy());
 
     win_thread.run(event_loop, app_state, handle);
 }

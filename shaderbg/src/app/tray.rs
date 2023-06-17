@@ -53,6 +53,13 @@ impl Tray {
 
         Tray { system_tray }
     }
+
+    pub fn rebuild_menus(&mut self, menu_builder: &mut MenuBuilder) {
+        if let Some(tray) = self.system_tray.as_mut() {
+            let tray_menu = menu_builder.build_tray_menu();
+            tray.set_menu(&tray_menu);
+        }
+    }
 }
 
 impl Drop for Tray {
