@@ -82,7 +82,16 @@ impl MenuBuilder {
         let mut menu = menu_new(menu_type);
 
         let state = self.app_state.get();
-        for recent_scene in state.config.recent_scenes.iter() {
+        let recent_scenes = state.config.recent_scenes.iter();
+
+        if recent_scenes.len() == 0 {
+            menu_add(
+                &mut menu,
+                MenuButton::new("No recent scenes").with_enabled(false),
+            );
+        }
+
+        for recent_scene in recent_scenes {
             if let Some(scene) = state.get_scene(recent_scene.scene.clone()) {
                 let id = menu_add(
                     &mut menu,

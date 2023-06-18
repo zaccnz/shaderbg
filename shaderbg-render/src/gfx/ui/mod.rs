@@ -1,4 +1,6 @@
+mod browser;
 mod scene;
+pub use browser::Browser;
 pub use scene::Scene;
 
 use egui::{Context, FullOutput, RawInput};

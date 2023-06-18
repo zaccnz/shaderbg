@@ -86,7 +86,7 @@ impl Scene {
     pub fn render(
         &mut self,
         ui: &mut egui::Ui,
-        scene_settings: Settings,
+        scene_settings: &Settings,
         changes: &mut Vec<(String, Setting)>,
     ) -> bool {
         let mut open = true;

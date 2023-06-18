@@ -22,7 +22,7 @@ pub struct Descriptor {
     pub render_passes: Vec<RenderPass>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Metadata {
     pub name: String,
     pub version: String,
@@ -30,7 +30,7 @@ pub struct Metadata {
     pub author: String,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum Ui {
     Setting { setting: String },

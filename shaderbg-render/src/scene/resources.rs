@@ -127,8 +127,6 @@ impl Resources {
         scene: &Scene,
         device: &Device,
         config: &SurfaceConfiguration,
-        time: Time,
-        shadertoy: ShaderToy,
     ) -> Result<Resources, ResourceError> {
         let descriptor = &scene.descriptor;
 
@@ -146,9 +144,10 @@ impl Resources {
         buffers.insert(
             "time".to_string(),
             BufferResource {
-                buffer: device.create_buffer_init(&BufferInitDescriptor {
+                buffer: device.create_buffer(&BufferDescriptor {
                     label: Some("Time Uniform"),
-                    contents: bytemuck::cast_slice(&[time]),
+                    size: std::mem::size_of::<Time>() as u64,
+                    mapped_at_creation: false,
                     usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
                 }),
                 vertex: None,
@@ -161,9 +160,10 @@ impl Resources {
         buffers.insert(
             "shadertoy".to_string(),
             BufferResource {
-                buffer: device.create_buffer_init(&BufferInitDescriptor {
+                buffer: device.create_buffer(&BufferDescriptor {
                     label: Some("ShaderToy Uniform"),
-                    contents: bytemuck::cast_slice(&[shadertoy]),
+                    size: std::mem::size_of::<ShaderToy>() as u64,
+                    mapped_at_creation: false,
                     usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
                 }),
                 vertex: None,

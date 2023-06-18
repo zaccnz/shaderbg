@@ -144,7 +144,7 @@ async fn run() {
     let mut time = Time::new();
     let mut shadertoy = ShaderToy::new();
 
-    let mut resources = Resources::new(&scene, &gfx.device, &gfx.config, time, shadertoy).unwrap();
+    let mut resources = Resources::new(&scene, &gfx.device, &gfx.config).unwrap();
     let mut last_frame = Instant::now();
     let started = SystemTime::now();
 
@@ -235,8 +235,7 @@ async fn run() {
                                 .open(&mut win_open)
                                 .resizable(false)
                                 .show(ctx, |ui| {
-                                    open =
-                                        scene_ui.render(ui, scene.settings.clone(), &mut changes);
+                                    open = scene_ui.render(ui, &scene.settings, &mut changes);
                                 });
                         }
                         if !open || !win_open {

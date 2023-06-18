@@ -171,16 +171,7 @@ impl Background {
         let mut shadertoy = ShaderToy::new();
 
         let mut resources = if let Some(scene) = self.app_state.get().scene() {
-            Some(
-                Resources::new(
-                    &scene,
-                    &gfx.device,
-                    &gfx.config,
-                    self.app_state.get().time,
-                    shadertoy,
-                )
-                .unwrap(),
-            )
+            Some(Resources::new(&scene, &gfx.device, &gfx.config).unwrap())
         } else {
             None
         };
@@ -212,16 +203,7 @@ impl Background {
                     }
                     BackgroundEvent::SceneChanged => {
                         resources = if let Some(scene) = self.app_state.get().scene() {
-                            Some(
-                                Resources::new(
-                                    &scene,
-                                    &gfx.device,
-                                    &gfx.config,
-                                    self.app_state.get().time,
-                                    shadertoy,
-                                )
-                                .unwrap(),
-                            )
+                            Some(Resources::new(&scene, &gfx.device, &gfx.config).unwrap())
                         } else {
                             None
                         };

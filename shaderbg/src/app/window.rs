@@ -11,12 +11,12 @@ use tao::{
 };
 
 use crate::{
-    app::{AppState, MenuBuilder, WindowEvent},
+    app::{AppEvent, AppState, MenuBuilder, WindowEvent},
     egui_tao,
 };
 use shaderbg_render::{
     gfx::{self, buffer::ShaderToy, Gfx, GfxContext},
-    scene::{Resources, Setting},
+    scene::{Resources, Setting, Settings},
 };
 
 #[derive(Debug)]
@@ -33,8 +33,10 @@ pub struct Window {
     #[allow(dead_code)]
     app_state: AppState,
     egui: egui_tao::State,
+    settings: Option<Settings>,
     resources: Option<Resources>,
     scene_ui: Option<gfx::ui::Scene>,
+    browser: Option<gfx::ui::Browser>,
     shadertoy: ShaderToy,
 }
 
@@ -72,33 +74,42 @@ impl Window {
 
         let shadertoy = ShaderToy::new();
 
-        let resources = if let Some(scene) = app_state.get().scene() {
-            Some(
-                Resources::new(
-                    scene,
-                    &gfx.device,
-                    &gfx.config,
-                    app_state.get().time,
-                    shadertoy,
-                )
-                .unwrap(),
+        let (resources, settings) = if let Some(scene) = app_state.get().scene() {
+            (
+                Some(Resources::new(scene, &gfx.device, &gfx.config).unwrap()),
+                Some(scene.settings.clone()),
             )
         } else {
-            None
+            (None, None)
         };
+
+        let browser = Some(gfx::ui::Browser::new(
+            app_state
+                .get()
+                .scenes
+                .iter()
+                .map(|entry| (entry.name.clone().to_string(), &entry.scene))
+                .collect(),
+        ));
 
         Window {
             window,
             gfx,
             app_state,
             egui: egui_platform,
+            settings,
             resources,
             scene_ui: None,
+            browser,
             shadertoy,
         }
     }
 
     pub fn update_setting(&mut self, key: String, value: Setting) {
+        if let Some(settings) = self.settings.as_mut() {
+            settings.update(&key, value.clone());
+        }
+
         if let Some(resources) = self.resources.as_mut() {
             resources.update_setting(key, value);
         }
@@ -174,13 +185,7 @@ impl Window {
             Event::MainEventsCleared => self.window.request_redraw(),
             Event::RedrawEventsCleared => {
                 let mut changes = Vec::new();
-                let (settings, time) = {
-                    let state = self.app_state.get();
-                    (
-                        state.scene().map(|scene| scene.settings.clone()),
-                        state.time.clone(),
-                    )
-                };
+                let time = { self.app_state.get().time.clone() };
 
                 let size = self.window.inner_size();
 
@@ -225,6 +230,8 @@ impl Window {
                                 }
                             });
 
+                        let settings = self.settings.as_ref();
+
                         let mut open = true;
                         let mut win_open = true;
 
@@ -242,6 +249,26 @@ impl Window {
                         }
                         if !open || !win_open {
                             self.scene_ui.take();
+                        }
+
+                        if let Some(browser) = self.browser.as_ref() {
+                            egui::Window::new("Scene Browser")
+                                .resizable(false)
+                                .show(ctx, |ui| {
+                                    let scene = browser.render(
+                                        ui,
+                                        self.app_state.get().current_scene(),
+                                        None,
+                                    );
+
+                                    if let Some(scene) = scene {
+                                        self.app_state
+                                            .send(AppEvent::SetScene(
+                                                self.app_state.get().scenes[scene].name.to_string(),
+                                            ))
+                                            .unwrap();
+                                    }
+                                });
                         }
                     },
                 );
@@ -287,20 +314,18 @@ impl Window {
     }
 
     pub fn scene_changed(&mut self) {
-        self.resources = if let Some(scene) = self.app_state.get().scene() {
-            Some(
-                Resources::new(
-                    scene,
-                    &self.gfx.device,
-                    &self.gfx.config,
-                    self.app_state.get().time,
-                    self.shadertoy,
-                )
-                .unwrap(),
-            )
+        if let Some(scene) = self.app_state.get().scene() {
+            self.resources =
+                Some(Resources::new(scene, &self.gfx.device, &self.gfx.config).unwrap());
+
+            self.settings = Some(scene.settings.clone());
+            if self.scene_ui.is_some() {
+                self.scene_ui = Some(gfx::ui::Scene::new(&scene.descriptor, &scene.settings));
+            }
         } else {
-            None
-        };
+            self.resources = None;
+            self.settings = None;
+        }
     }
 
     pub fn will_close(&self, event_loop: &EventLoopWindowTarget<WindowEvent>) {

@@ -115,6 +115,10 @@ impl State {
             .map(|entry| &entry.scene)
     }
 
+    pub fn current_scene(&self) -> Option<usize> {
+        self.current_scene
+    }
+
     pub fn set_scene(&mut self, scene: String) -> bool {
         let index = self
             .scenes

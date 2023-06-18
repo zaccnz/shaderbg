@@ -155,7 +155,6 @@ pub fn start_main(
                             }
                         }
                         AppEvent::SetScene(scene) => {
-                            println!("setting scene {}", scene);
                             let changed = if let Ok(mut state) = state.write() {
                                 if state.set_scene(scene.clone()) {
                                     state.config.scene = Some(scene.clone());
