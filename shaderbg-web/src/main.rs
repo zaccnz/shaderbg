@@ -1,8 +1,5 @@
 use egui::RichText;
-use std::{
-    collections::{HashMap, VecDeque},
-    rc::Rc,
-};
+use std::{collections::VecDeque, rc::Rc};
 use web_time::{Instant, SystemTime};
 
 use shaderbg_render::{
@@ -19,6 +16,8 @@ use winit::{
     event_loop::{ControlFlow, EventLoopBuilder},
     window::WindowBuilder,
 };
+
+mod scenes;
 
 fn demo_ui(
     ui: &mut egui::Ui,
@@ -123,29 +122,14 @@ async fn run() {
     let mut egui_platform = egui_winit::State::new(window.as_ref());
     egui_platform.set_pixels_per_point(window.scale_factor() as f32);
 
-    // hack to avoid WASM file operations
-    let scene_toml = include_bytes!("../../scenes/waves/scene.toml").to_vec();
-    let scene_files = HashMap::from([
-        (
-            "compute_shader".to_string(),
-            include_bytes!("../../scenes/waves/vertices.wgsl").to_vec(),
-        ),
-        (
-            "render_shader".to_string(),
-            include_bytes!("../../scenes/waves/waves.wgsl").to_vec(),
-        ),
-    ]);
-
-    let mut scene = match Scene::load_from_memory(scene_toml, scene_files) {
-        Ok(scene) => scene,
-        Err(e) => panic!("{:?}", e),
-    };
+    let mut scenes = scenes::load();
+    let mut current_scene = 0;
 
     let mut time = Time::new();
     let mut shadertoy = ShaderToy::new();
 
     let mut resources = Resources::new(
-        &scene,
+        &scenes[current_scene].1,
         &gfx.device,
         gfx.config.width,
         gfx.config.height,
@@ -156,6 +140,13 @@ async fn run() {
     let started = SystemTime::now();
 
     let mut scene_ui = None;
+    let mut browser_ui = gfx::ui::Browser::new(
+        scenes
+            .iter()
+            .map(|(name, scene)| (name.clone(), scene))
+            .collect(),
+        &gfx.device,
+    );
 
     let mut frame_times = VecDeque::new();
 
@@ -217,7 +208,15 @@ async fn run() {
                 shadertoy.update(now_u32, dt, size.width, size.height);
                 last_frame = now;
 
+                browser_ui.update_previews(
+                    gfx.ui.as_mut().unwrap().renderer_mut(),
+                    &gfx.queue,
+                    &mut gfx.device,
+                    time,
+                );
+
                 let mut changes = Vec::new();
+                let mut next_scene = None;
 
                 let full_output = gfx.render(
                     Some(&mut resources),
@@ -232,7 +231,7 @@ async fn run() {
                             .movable(false)
                             .resizable(false)
                             .show(ctx, |ui| {
-                                demo_ui(ui, &mut scene_ui, &scene, fps_average);
+                                demo_ui(ui, &mut scene_ui, &scenes[current_scene].1, fps_average);
                             });
 
                         let mut open = true;
@@ -242,18 +241,46 @@ async fn run() {
                                 .open(&mut win_open)
                                 .resizable(false)
                                 .show(ctx, |ui| {
-                                    open = scene_ui.render(ui, &scene.settings, &mut changes);
+                                    open = scene_ui.render(
+                                        ui,
+                                        &scenes[current_scene].1.settings,
+                                        &mut changes,
+                                    );
                                 });
                         }
                         if !open || !win_open {
                             scene_ui.take();
                         }
+
+                        egui::Window::new("Scene Browser")
+                            .resizable(false)
+                            .show(ctx, |ui| {
+                                next_scene = browser_ui.render(ui, Some(current_scene), None);
+                            });
                     },
                 );
 
                 for (key, value) in changes {
-                    scene.settings.update(&key, value.clone());
+                    scenes[current_scene].1.settings.update(&key, value.clone());
                     resources.update_setting(key, value);
+                }
+
+                if let Some(next_scene) = next_scene {
+                    current_scene = next_scene;
+                    resources = Resources::new(
+                        &scenes[current_scene].1,
+                        &gfx.device,
+                        gfx.config.width,
+                        gfx.config.height,
+                        gfx.config.format,
+                    )
+                    .unwrap();
+                    if scene_ui.is_some() {
+                        scene_ui = Some(gfx::ui::Scene::new(
+                            &scenes[current_scene].1.descriptor,
+                            &scenes[current_scene].1.settings,
+                        ));
+                    }
                 }
 
                 if let Some(full_output) = full_output {
