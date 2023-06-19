@@ -2,3 +2,4 @@
 generated/*
 !generated/*.html
 wasmbuild.sh
+config.toml
