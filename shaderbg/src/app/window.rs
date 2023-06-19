@@ -76,7 +76,16 @@ impl Window {
 
         let (resources, settings) = if let Some(scene) = app_state.get().scene() {
             (
-                Some(Resources::new(scene, &gfx.device, &gfx.config).unwrap()),
+                Some(
+                    Resources::new(
+                        scene,
+                        &gfx.device,
+                        gfx.config.width,
+                        gfx.config.height,
+                        gfx.config.format,
+                    )
+                    .unwrap(),
+                ),
                 Some(scene.settings.clone()),
             )
         } else {
@@ -90,6 +99,7 @@ impl Window {
                 .iter()
                 .map(|entry| (entry.name.clone().to_string(), &entry.scene))
                 .collect(),
+            &gfx.device,
         ));
 
         Window {
@@ -191,6 +201,15 @@ impl Window {
 
                 self.shadertoy
                     .update(time.time, time.dt as f64, size.width, size.height);
+
+                if let Some(browser) = self.browser.as_mut() {
+                    browser.update_previews(
+                        self.gfx.ui.as_mut().unwrap().renderer_mut(),
+                        &self.gfx.queue,
+                        &mut self.gfx.device,
+                        time,
+                    );
+                }
 
                 let full_output = self.gfx.render(
                     self.resources.as_mut(),
@@ -315,8 +334,16 @@ impl Window {
 
     pub fn scene_changed(&mut self) {
         if let Some(scene) = self.app_state.get().scene() {
-            self.resources =
-                Some(Resources::new(scene, &self.gfx.device, &self.gfx.config).unwrap());
+            self.resources = Some(
+                Resources::new(
+                    scene,
+                    &self.gfx.device,
+                    self.gfx.config.width,
+                    self.gfx.config.height,
+                    self.gfx.config.format,
+                )
+                .unwrap(),
+            );
 
             self.settings = Some(scene.settings.clone());
             if self.scene_ui.is_some() {

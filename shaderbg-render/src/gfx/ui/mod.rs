@@ -27,6 +27,10 @@ impl Ui {
         &self.context
     }
 
+    pub fn renderer_mut(&mut self) -> &mut Renderer {
+        &mut self.renderer
+    }
+
     pub fn render<F: FnOnce(&egui::Context)>(
         &mut self,
         encoder: &mut CommandEncoder,

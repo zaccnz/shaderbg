@@ -72,14 +72,16 @@ impl Gfx {
             .await
             .unwrap();
 
+        let format = wgpu::TextureFormat::Bgra8Unorm;
+
         let surface_desc = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: wgpu::TextureFormat::Bgra8Unorm,
+            format,
             width: width,
             height: height,
             present_mode: wgpu::PresentMode::Fifo,
             alpha_mode: wgpu::CompositeAlphaMode::Auto,
-            view_formats: vec![wgpu::TextureFormat::Bgra8Unorm],
+            view_formats: vec![format],
         };
 
         surface.configure(&device, &surface_desc);

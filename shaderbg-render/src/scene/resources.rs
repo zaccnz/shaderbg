@@ -12,7 +12,7 @@ use wgpu::{
     BufferDescriptor, BufferUsages, ColorTargetState, ColorWrites, CommandEncoder, ComputePipeline,
     ComputePipelineDescriptor, Device, FragmentState, PipelineLayoutDescriptor, PrimitiveState,
     Queue, RenderPipeline, RenderPipelineDescriptor, ShaderModule, ShaderModuleDescriptor,
-    SurfaceConfiguration, TextureView, VertexAttribute, VertexBufferLayout, VertexState,
+    TextureFormat, TextureView, VertexAttribute, VertexBufferLayout, VertexState,
 };
 
 use crate::{
@@ -126,7 +126,9 @@ impl Resources {
     pub fn new(
         scene: &Scene,
         device: &Device,
-        config: &SurfaceConfiguration,
+        width: u32,
+        height: u32,
+        format: TextureFormat,
     ) -> Result<Resources, ResourceError> {
         let descriptor = &scene.descriptor;
 
@@ -276,7 +278,7 @@ impl Resources {
                         Point3::<f32>::new(position[0] as _, position[1] as _, position[2] as _);
                     let target =
                         Point3::<f32>::new(look_at[0] as _, look_at[1] as _, look_at[2] as _);
-                    let camera = Camera::new(eye, target, config.width, config.height);
+                    let camera = Camera::new(eye, target, width, height);
                     let mut camera_matrix = CameraMatrix::new();
                     camera_matrix.update_view_proj(&camera);
                     let camera_buffer = device.create_buffer_init(&BufferInitDescriptor {
@@ -432,7 +434,7 @@ impl Resources {
                         Err(error) => return Err(ResourceError::InvalidShaderUtf8(error)),
                     };
 
-                    let shader_harness = include_str!("../shadertoy/fragment.glsl");
+                    let shader_harness = include_str!("../shaders/shadertoy/fragment.glsl");
 
                     let full_source_string =
                         shader_harness.replace("{{SOURCE}}", shader_source_string);
@@ -458,7 +460,7 @@ impl Resources {
                         label: label.as_deref(),
                         source: wgpu::ShaderSource::Glsl {
                             shader: Cow::Owned(
-                                include_str!("../shadertoy/vertex.glsl").to_string(),
+                                include_str!("../shaders/shadertoy/vertex.glsl").to_string(),
                             ),
                             stage: naga::ShaderStage::Vertex,
                             defines: Default::default(),
@@ -492,10 +494,10 @@ impl Resources {
                     resources.build_compute_pipeline(pass, device, &shaders)?
                 }
                 RenderPass::Render { .. } => {
-                    resources.build_render_pipeline(pass, device, config, &shaders)?
+                    resources.build_render_pipeline(pass, device, format, &shaders)?
                 }
                 RenderPass::ShaderToy { .. } => {
-                    resources.build_shadertoy_pipeline(pass, device, config, &shaders)?
+                    resources.build_shadertoy_pipeline(pass, device, format, &shaders)?
                 }
             };
             resources.passes.push(pass_resource);
@@ -704,7 +706,7 @@ impl Resources {
         &mut self,
         pass: &RenderPass,
         device: &Device,
-        config: &SurfaceConfiguration,
+        format: TextureFormat,
         shaders: &HashMap<String, ShaderResource>,
     ) -> Result<PassResource, ResourceError> {
         let (label, pipeline, clear, draw) = match pass {
@@ -761,7 +763,7 @@ impl Resources {
         };
 
         let targets = [Some(ColorTargetState {
-            format: config.format,
+            format,
             blend: Some(BlendState::REPLACE),
             write_mask: ColorWrites::ALL,
         })];
@@ -827,7 +829,7 @@ impl Resources {
         &mut self,
         pass: &RenderPass,
         device: &Device,
-        config: &SurfaceConfiguration,
+        format: TextureFormat,
         shaders: &HashMap<String, ShaderResource>,
     ) -> Result<PassResource, ResourceError> {
         let (label, source, additional_bindings) = match pass {
@@ -873,7 +875,7 @@ impl Resources {
             Resources::get_shader_and_entrypoint(source, ShaderEntrypointType::FRAGMENT, &shaders)?;
 
         let targets = [Some(ColorTargetState {
-            format: config.format,
+            format,
             blend: Some(BlendState::REPLACE),
             write_mask: ColorWrites::ALL,
         })];
