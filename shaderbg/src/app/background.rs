@@ -2,7 +2,7 @@ use core::fmt::Debug;
 use std::sync::mpsc;
 use tao::{
     dpi::PhysicalSize,
-    event::{self, Event},
+    event::{self, Event, WindowEvent as TaoWindowEvent},
     event_loop::EventLoopWindowTarget,
     window::{Window, WindowBuilder},
 };
@@ -198,10 +198,32 @@ impl Background {
                         }
                         Event::MainEventsCleared => self.window.request_redraw(),
                         Event::RedrawEventsCleared => {
-                            let time = { self.app_state.get().time.clone() };
+                            let time = { self.app_state.get_time().clone() };
                             let size = self.window.inner_size();
                             shadertoy.update(time.time, time.dt as f64, size.width, size.height);
                             gfx.render(resources.as_mut(), time, shadertoy, None, |_| {});
+                        }
+                        Event::WindowEvent {
+                            event: TaoWindowEvent::Resized(PhysicalSize { width, height }),
+                            ..
+                        } => {
+                            gfx.resized(width, height);
+                            if let Some(resources) = resources.as_mut() {
+                                resources.resize(width, height);
+                            }
+                        }
+                        Event::WindowEvent {
+                            event:
+                                TaoWindowEvent::ScaleFactorChanged {
+                                    new_inner_size: PhysicalSize { width, height },
+                                    ..
+                                },
+                            ..
+                        } => {
+                            gfx.resized(*width, *height);
+                            if let Some(resources) = resources.as_mut() {
+                                resources.resize(*width, *height);
+                            }
                         }
                         _ => {}
                     },

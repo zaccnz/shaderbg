@@ -74,6 +74,7 @@ enum PassResource {
 struct CameraResource {
     camera: Camera,
     matrix: CameraMatrix,
+    dirty: bool,
 }
 
 #[allow(dead_code)]
@@ -292,6 +293,7 @@ impl Resources {
                         CameraResource {
                             camera,
                             matrix: camera_matrix,
+                            dirty: false,
                         },
                     );
                     buffers.insert(
@@ -990,6 +992,14 @@ impl Resources {
         }
     }
 
+    pub fn resize(&mut self, width: u32, height: u32) {
+        for (_, camera) in self.cameras.iter_mut() {
+            camera.camera.resize(width, height);
+            camera.matrix.update_view_proj(&camera.camera);
+            camera.dirty = true;
+        }
+    }
+
     pub fn render(
         &mut self,
         queue: &Queue,
@@ -1007,6 +1017,14 @@ impl Resources {
                 0,
                 bytemuck::cast_slice(&[shadertoy]),
             );
+        }
+
+        for (key, camera) in self.cameras.iter() {
+            if camera.dirty {
+                if let Some(buffer) = self.buffers.get(key) {
+                    queue.write_buffer(&buffer.buffer, 0, bytemuck::cast_slice(&[camera.matrix]));
+                }
+            }
         }
 
         for uniform_id in self.updated_uniforms.drain(..) {

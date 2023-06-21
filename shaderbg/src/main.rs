@@ -9,6 +9,7 @@ extern crate objc;
 mod app;
 pub mod egui_tao;
 mod io;
+mod ui;
 
 fn main() {
     env_logger::init();

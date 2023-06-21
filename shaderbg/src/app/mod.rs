@@ -13,7 +13,7 @@ use std::{
 use tao::{event::Event, event_loop::EventLoopProxy};
 
 use crate::io::{Args, Config};
-use shaderbg_render::scene::Setting;
+use shaderbg_render::{gfx::buffer::Time, scene::Setting};
 
 mod background;
 mod menu;
@@ -60,7 +60,8 @@ pub fn start_main(
 
     let app_tx = tx.clone();
     let state = Arc::new(RwLock::new(State::new(args, config)));
-    let app_state = AppState::build(state.clone(), app_tx, AppEventSender::Window);
+    let time = Arc::new(RwLock::new(Time::new()));
+    let app_state = AppState::build(state.clone(), time.clone(), app_tx, AppEventSender::Window);
     let return_state = app_state.clone();
 
     let mut background_handle: Option<std::thread::JoinHandle<()>> = None;
@@ -107,12 +108,12 @@ pub fn start_main(
                             }
                         }
                         AppEvent::Update(dt) => {
-                            if let Ok(mut state) = state.write() {
-                                let now = SystemTime::now()
-                                    .duration_since(started)
-                                    .unwrap()
-                                    .as_millis() as u32;
-                                state.time.update_time(now, dt);
+                            let now = SystemTime::now()
+                                .duration_since(started)
+                                .unwrap()
+                                .as_millis() as u32;
+                            if let Ok(mut time) = time.write() {
+                                time.update_time(now, dt);
                             }
                         }
                         AppEvent::EventLoopReady => {

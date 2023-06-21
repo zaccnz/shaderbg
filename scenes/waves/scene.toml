@@ -4,7 +4,7 @@
 name = "Waves"
 version = "1.0"
 description = "Polygon waves to help you relax.  A rewrite of vanta.waves.js from Vanta.js"
-author = "Teng Bao - vanta.waves.js, Zac - shaderbg port"
+author = "Teng Bao, ported by Zac"
 
 [settings]
   [settings.wave_size]

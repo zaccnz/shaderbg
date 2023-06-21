@@ -1,7 +1,6 @@
 /*
  * Main window
  */
-use egui::RichText;
 use tao::{
     dpi::{LogicalSize, PhysicalSize},
     event::{Event, WindowEvent as TaoWindowEvent},
@@ -12,7 +11,7 @@ use tao::{
 
 use crate::{
     app::{AppEvent, AppState, MenuBuilder, WindowEvent},
-    egui_tao,
+    egui_tao, ui,
 };
 use shaderbg_render::{
     gfx::{self, buffer::ShaderToy, Gfx, GfxContext},
@@ -35,9 +34,11 @@ pub struct Window {
     egui: egui_tao::State,
     settings: Option<Settings>,
     resources: Option<Resources>,
+    shadertoy: ShaderToy,
+    // ui
     scene_ui: Option<gfx::ui::Scene>,
     browser: Option<gfx::ui::Browser>,
-    shadertoy: ShaderToy,
+    settings_ui: Option<ui::Settings>,
 }
 
 impl Window {
@@ -92,16 +93,6 @@ impl Window {
             (None, None)
         };
 
-        let browser = Some(gfx::ui::Browser::new(
-            app_state
-                .get()
-                .scenes
-                .iter()
-                .map(|entry| (entry.name.clone().to_string(), &entry.scene))
-                .collect(),
-            &gfx.device,
-        ));
-
         Window {
             window,
             gfx,
@@ -110,7 +101,8 @@ impl Window {
             settings,
             resources,
             scene_ui: None,
-            browser,
+            browser: None,
+            settings_ui: None,
             shadertoy,
         }
     }
@@ -148,6 +140,9 @@ impl Window {
                 ..
             } => {
                 self.gfx.resized(width, height);
+                if let Some(resources) = self.resources.as_mut() {
+                    resources.resize(width, height);
+                }
             }
             Event::WindowEvent {
                 event:
@@ -158,6 +153,9 @@ impl Window {
                 ..
             } => {
                 self.gfx.resized(*width, *height);
+                if let Some(resources) = self.resources.as_mut() {
+                    resources.resize(*width, *height);
+                }
                 self.egui.set_pixels_per_point(scale_factor as f32);
             }
             Event::WindowEvent {
@@ -195,7 +193,7 @@ impl Window {
             Event::MainEventsCleared => self.window.request_redraw(),
             Event::RedrawEventsCleared => {
                 let mut changes = Vec::new();
-                let time = { self.app_state.get().time.clone() };
+                let time = { self.app_state.get_time().clone() };
 
                 let size = self.window.inner_size();
 
@@ -211,6 +209,8 @@ impl Window {
                     );
                 }
 
+                let mut open_browser = false;
+
                 let full_output = self.gfx.render(
                     self.resources.as_mut(),
                     time,
@@ -220,43 +220,47 @@ impl Window {
                         self.egui.take_egui_input(&self.window),
                     )),
                     |ctx| {
-                        egui::Window::new("shaderbg")
-                            .movable(false)
-                            .resizable(false)
-                            .title_bar(false)
-                            .show(ctx, |ui| {
-                                if let Some(scene) = self.app_state.get().scene() {
-                                    ui.heading(RichText::new("Current Scene").strong());
-                                    ui.horizontal(|ui| {
-                                        ui.label(
-                                            RichText::new(scene.descriptor.meta.name.clone())
-                                                .strong(),
-                                        );
-
-                                        ui.label(format!(
-                                            "({})",
-                                            scene.descriptor.meta.version.clone()
-                                        ));
-                                    });
-                                    if ui.button("Scene Settings").clicked() {
-                                        self.scene_ui = Some(gfx::ui::Scene::new(
-                                            &scene.descriptor,
-                                            &scene.settings,
-                                        ));
-                                    }
-                                } else {
-                                    ui.heading("No Scene Loaded");
+                        egui::Window::new(if let Some(scene) = self.app_state.get().scene() {
+                            format!("Menu - {}", scene.descriptor.meta.name)
+                        } else {
+                            "Menu".to_string()
+                        })
+                        .movable(false)
+                        .resizable(false)
+                        .id("shaderbg".into())
+                        .show(ctx, |ui: &mut egui::Ui| {
+                            if let Some(scene) = self.app_state.get().scene() {
+                                ui.label("Scene");
+                                if ui.button("Pause").clicked() {}
+                                if ui.button("Reload").clicked() {}
+                                if ui.button("Scene Settings").clicked() {
+                                    self.scene_ui = Some(gfx::ui::Scene::new(
+                                        &scene.descriptor,
+                                        &scene.settings,
+                                    ));
                                 }
-                            });
+                            } else {
+                                ui.heading("No Scene Loaded");
+                            }
+                            ui.label("App");
+                            if ui.button("Scene Browser").clicked() {
+                                open_browser = true;
+                            }
+                            if ui.button("Configure Background").clicked() {}
+                            if ui.button("Settings").clicked() {
+                                self.settings_ui = Some(ui::Settings::new(self.app_state.clone()));
+                            }
+                            if ui.button("Performance").clicked() {}
+                        });
 
                         let settings = self.settings.as_ref();
 
-                        let mut open = true;
-                        let mut win_open = true;
+                        let mut scene_ui_open = true;
 
                         if let Some(scene_ui) = self.scene_ui.as_mut() {
+                            let mut open = true;
                             egui::Window::new("Scene Settings")
-                                .open(&mut win_open)
+                                .open(&mut scene_ui_open)
                                 .resizable(false)
                                 .show(ctx, |ui| {
                                     if let Some(settings) = settings {
@@ -265,19 +269,25 @@ impl Window {
                                         ui.heading("An error occurred");
                                     }
                                 });
+                            scene_ui_open &= open;
                         }
-                        if !open || !win_open {
+
+                        if !scene_ui_open {
                             self.scene_ui.take();
                         }
 
+                        let mut browser_open = true;
+                        let mut browser_reload = false;
                         if let Some(browser) = self.browser.as_ref() {
                             egui::Window::new("Scene Browser")
+                                .open(&mut browser_open)
                                 .resizable(false)
+                                .collapsible(false)
                                 .show(ctx, |ui| {
                                     let scene = browser.render(
                                         ui,
                                         self.app_state.get().current_scene(),
-                                        None,
+                                        Some(&mut browser_reload),
                                     );
 
                                     if let Some(scene) = scene {
@@ -289,6 +299,27 @@ impl Window {
                                     }
                                 });
                         }
+                        if !browser_open {
+                            self.browser.take();
+                        }
+                        if browser_reload {
+                            println!("reload scenes");
+                        }
+
+                        let mut settings_open = true;
+
+                        if let Some(settings) = self.settings_ui.as_mut() {
+                            egui::Window::new("Settings")
+                                .resizable(false)
+                                .collapsible(false)
+                                .show(ctx, |ui| {
+                                    settings_open = settings.render(ui);
+                                });
+                        }
+
+                        if !settings_open {
+                            self.settings_ui.take();
+                        }
                     },
                 );
 
@@ -296,6 +327,18 @@ impl Window {
                     self.app_state
                         .send(super::AppEvent::SettingUpdated(key, value))
                         .unwrap();
+                }
+
+                if open_browser {
+                    self.browser = Some(gfx::ui::Browser::new(
+                        self.app_state
+                            .get()
+                            .scenes
+                            .iter()
+                            .map(|entry| (entry.name.clone().to_string(), &entry.scene))
+                            .collect(),
+                        &self.gfx.device,
+                    ));
                 }
 
                 if let Some(full_output) = full_output {

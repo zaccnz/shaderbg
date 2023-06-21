@@ -167,6 +167,7 @@ async fn run() {
                 ..
             } => {
                 gfx.resized(width, height);
+                resources.resize(width, height);
             }
             Event::WindowEvent {
                 event:
@@ -177,6 +178,7 @@ async fn run() {
                 ..
             } => {
                 gfx.resized(*width, *height);
+                resources.resize(*width, *height);
                 egui_platform.set_pixels_per_point(scale_factor as f32);
             }
             Event::UserEvent(ThemeEvent::Dark) => {

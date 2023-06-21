@@ -1,3 +1,4 @@
+use egui::RichText;
 use std::collections::HashMap;
 use wgpu::{
     BindGroupLayout, CommandEncoder, Device, Queue, RenderPipeline, Sampler, Texture,
@@ -76,7 +77,7 @@ impl Browser {
     ) -> Option<usize> {
         let mut selected = None;
         ui.horizontal(|ui| {
-            ui.heading(format!("{} scenes loaded", self.scenes.len()));
+            ui.heading(format!("Scenes loaded: {}", self.scenes.len()));
             if let Some(reload) = reload {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui.button("Reload").clicked() {
@@ -100,12 +101,18 @@ impl Browser {
                 }
 
                 ui.vertical(|ui| {
-                    ui.label(format!("{} ({})", meta.name, meta.version));
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new(meta.name.clone()).strong());
+                        ui.label(format!("({})", meta.version));
+                        ui.label(format!("by {}", meta.author));
+                    });
+                    ui.label(meta.description.clone());
                     if Some(index) == current_scene {
-                        ui.label("selected");
-                    }
-                    if ui.button("Select").clicked() {
-                        selected = Some(index)
+                        ui.label(RichText::new("Selected").strong());
+                    } else {
+                        if ui.button("Select").clicked() {
+                            selected = Some(index)
+                        }
                     }
                 })
             });

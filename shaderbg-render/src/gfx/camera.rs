@@ -31,6 +31,10 @@ impl Camera {
         }
     }
 
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.aspect = width as f32 / height as f32;
+    }
+
     pub fn build_projection_matrix(&self) -> Matrix4<f32> {
         let proj = perspective(Deg(self.fovy), self.aspect, self.znear, self.zfar);
 

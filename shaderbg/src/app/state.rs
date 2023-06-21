@@ -25,7 +25,6 @@ pub struct State {
     pub background_open: bool,
     pub scenes: Box<[SceneEntry]>,
     current_scene: Option<usize>,
-    pub time: Time,
 }
 
 impl State {
@@ -78,7 +77,6 @@ impl State {
             config: config,
             scenes,
             current_scene,
-            time: Time::new(),
         }
     }
 
@@ -142,6 +140,7 @@ impl State {
 #[derive(Clone)]
 pub struct AppState {
     state: Arc<RwLock<State>>,
+    time: Arc<RwLock<Time>>,
     owner: AppEventSender,
     pub app_tx: Sender<AppMessage>,
 }
@@ -149,11 +148,13 @@ pub struct AppState {
 impl AppState {
     pub fn build(
         state: Arc<RwLock<State>>,
+        time: Arc<RwLock<Time>>,
         app_tx: Sender<AppMessage>,
         owner: AppEventSender,
     ) -> AppState {
         AppState {
             state,
+            time,
             app_tx,
             owner,
         }
@@ -163,6 +164,10 @@ impl AppState {
         self.state.read().unwrap()
     }
 
+    pub fn get_time(&self) -> RwLockReadGuard<'_, Time> {
+        self.time.read().unwrap()
+    }
+
     pub fn send(&self, event: AppEvent) -> Result<(), SendError<AppMessage>> {
         self.app_tx.send((event, self.owner.clone()))
     }
@@ -170,6 +175,7 @@ impl AppState {
     pub fn clone_for(&self, owner: AppEventSender) -> AppState {
         AppState {
             state: self.state.clone(),
+            time: self.time.clone(),
             owner,
             app_tx: self.app_tx.clone(),
         }
