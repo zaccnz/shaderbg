@@ -30,7 +30,7 @@ impl Settings {
         let settings_string = if let Ok(settings) = fs::read_to_string(path.clone()) {
             settings
         } else {
-            eprintln!("Scene settings \"{:?}\" not found, ignoring", path);
+            eprintln!("Scene settings {:?} not found, ignoring", path);
             return None;
         };
 
@@ -38,7 +38,7 @@ impl Settings {
             Ok(data) => data,
             Err(error) => {
                 eprintln!(
-                    "Failed to parse scene settings file \"{:?}\":\n{:#?}\nIgnoring",
+                    "Failed to parse scene settings file {:?}:\n{:#?}\nIgnoring",
                     path, error
                 );
                 return None;
@@ -49,7 +49,6 @@ impl Settings {
             let setting = if let Ok(setting) = SettingValue::from_descriptor(setting) {
                 setting
             } else {
-                // oops.  we are going to have bigger problems.
                 return None;
             };
 

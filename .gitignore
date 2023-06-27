@@ -4,3 +4,4 @@
 !/generated/*.html
 /wasmbuild.sh
 /config.toml
+/scenes/*.zip

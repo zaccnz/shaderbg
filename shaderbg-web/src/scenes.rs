@@ -11,11 +11,11 @@ pub fn load() -> Vec<(String, Scene)> {
         let scene_toml = include_bytes!("../../scenes/waves/scene.toml").to_vec();
         let scene_files = HashMap::from([
             (
-                "compute_shader".to_string(),
+                "vertices.wgsl".to_string(),
                 include_bytes!("../../scenes/waves/vertices.wgsl").to_vec(),
             ),
             (
-                "render_shader".to_string(),
+                "waves.wgsl".to_string(),
                 include_bytes!("../../scenes/waves/waves.wgsl").to_vec(),
             ),
         ]);
@@ -29,7 +29,7 @@ pub fn load() -> Vec<(String, Scene)> {
     {
         let scene_toml = include_bytes!("../../scenes/shadertoy-ltcGDl/scene.toml").to_vec();
         let scene_files = HashMap::from([(
-            "shadertoy".to_string(),
+            "desert.glsl".to_string(),
             include_bytes!("../../scenes/shadertoy-ltcGDl/desert.glsl").to_vec(),
         )]);
         let desert = match Scene::load_from_memory(scene_toml, scene_files) {
@@ -42,7 +42,7 @@ pub fn load() -> Vec<(String, Scene)> {
     {
         let scene_toml = include_bytes!("../../scenes/shadertoy-mdBSRt/scene.toml").to_vec();
         let scene_files = HashMap::from([(
-            "shadertoy".to_string(),
+            "tiles.glsl".to_string(),
             include_bytes!("../../scenes/shadertoy-mdBSRt/tiles.glsl").to_vec(),
         )]);
         let tiles = match Scene::load_from_memory(scene_toml, scene_files) {

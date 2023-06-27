@@ -257,6 +257,12 @@ pub fn start_main(
                 }
             };
         }
+
+        if let Ok(state) = state.read() {
+            if let Err(e) = state.config.save() {
+                eprintln!("Error saving config: {}", e);
+            }
+        }
     });
 
     (return_state, handle)

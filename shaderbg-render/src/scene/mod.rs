@@ -17,6 +17,7 @@ pub enum SceneError {
         error: String,
     },
     SettingsError(SettingParseError),
+    ArchiveError(String),
 }
 
 pub struct Scene {
@@ -99,7 +100,7 @@ impl Scene {
 
     pub fn load_from_memory(
         scene_toml: Vec<u8>,
-        files: HashMap<String, Vec<u8>>,
+        mut virtual_folder: HashMap<String, Vec<u8>>,
     ) -> Result<Scene, SceneError> {
         let toml_string = match std::str::from_utf8(scene_toml.as_slice()) {
             Ok(string) => string,
@@ -121,10 +122,14 @@ impl Scene {
             }
         };
 
+        let mut files = HashMap::new();
+
         for (id, resource) in descriptor.resources.iter() {
             match resource {
-                Resource::Shader { .. } => {
-                    if !files.contains_key(id) {
+                Resource::Shader { src, .. } | Resource::ShaderToy { src, .. } => {
+                    if let Some(file) = virtual_folder.remove(src) {
+                        files.insert(id.clone(), file);
+                    } else {
                         return Err(SceneError::InvalidResource {
                             kind: "Shader".to_string(),
                             id: id.clone(),
