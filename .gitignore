@@ -1,5 +1,6 @@
 /target
-generated/*
-!generated/*.html
-wasmbuild.sh
-config.toml
+/settings
+/generated/*
+!/generated/*.html
+/wasmbuild.sh
+/config.toml

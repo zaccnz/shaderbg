@@ -10,7 +10,7 @@ use crate::{
     app::{AppEvent, AppEventSender, AppState, Background, MenuBuilder, Tray, Window, Windows},
     io::UiTheme,
 };
-use shaderbg_render::scene::Setting;
+use shaderbg_render::scene::io::setting::SettingValue;
 
 #[derive(Debug)]
 pub enum WindowEvent {
@@ -19,7 +19,7 @@ pub enum WindowEvent {
     StopTray,
     StartBackground,
     StopBackground,
-    SettingUpdated(String, Setting),
+    SettingUpdated(String, SettingValue),
     OpenUiWindow(Windows),
     UpdateTheme(UiTheme),
     RebuildMenus,

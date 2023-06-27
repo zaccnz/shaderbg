@@ -117,12 +117,11 @@ impl Settings {
                         .send(AppEvent::Window(WindowEvent::StartTray))
                         .unwrap();
                 }
-                TrayConfig::Disabled => {
+                TrayConfig::Disabled | TrayConfig::CloseTo => {
                     self.app_state
                         .send(AppEvent::Window(WindowEvent::StopTray))
                         .unwrap();
                 }
-                _ => {}
             }
             changes.push(ConfigUpdate::TrayConfig(self.tray_config.clone()));
         }

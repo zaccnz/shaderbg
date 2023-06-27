@@ -7,15 +7,16 @@ pub struct SceneEntry {
     pub scene: Scene,
 }
 
-pub fn load_scenes(scene_dir: String) -> Box<[SceneEntry]> {
-    let scene_dir = match std::fs::read_dir(scene_dir) {
-        Ok(scene_dir) => scene_dir,
+pub fn load_scenes(scene_dir: PathBuf, settings_dir: PathBuf) -> Box<[SceneEntry]> {
+    println!("scene dir {:?}", scene_dir);
+    let scene_dir_iter = match std::fs::read_dir(scene_dir.clone()) {
+        Ok(scene_dir_iter) => scene_dir_iter,
         Err(e) => panic!("{:?}", e),
     };
 
     let mut scenes = Vec::new();
 
-    for scene_path in scene_dir {
+    for scene_path in scene_dir_iter {
         let path = match scene_path {
             Ok(path) => path,
             Err(e) => {
@@ -31,7 +32,7 @@ pub fn load_scenes(scene_dir: String) -> Box<[SceneEntry]> {
                 continue;
             }
         };
-        let scene = match Scene::load(PathBuf::from(path.path())) {
+        let scene = match Scene::load(name.to_string(), scene_dir.clone(), settings_dir.clone()) {
             Ok(scene) => scene,
             Err(e) => {
                 eprintln!("Failed to load scene {:?}: {:?}", path, e);

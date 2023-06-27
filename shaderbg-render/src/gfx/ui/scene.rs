@@ -7,10 +7,10 @@ use egui::RichText;
 
 use crate::scene::{
     io::{
-        setting::Setting as SettingDescriptor, util::DeserializableMap, Descriptor,
-        Ui as UiDescriptor,
+        setting::Setting as SettingDescriptor, setting::SettingValue, util::DeserializableMap,
+        Descriptor, Ui as UiDescriptor,
     },
-    Setting, Settings,
+    Settings,
 };
 
 enum SceneUiElement {
@@ -19,10 +19,17 @@ enum SceneUiElement {
     SettingGroup(Vec<String>),
 }
 
+#[derive(PartialEq)]
+pub enum SceneUiResult {
+    Open,
+    Closed,
+    Saved,
+}
+
 pub struct Scene {
     setting_descriptors: DeserializableMap<SettingDescriptor>,
     elements: Vec<SceneUiElement>,
-    original_values: HashMap<String, Setting>,
+    original_values: HashMap<String, SettingValue>,
 }
 
 impl Scene {
@@ -61,22 +68,26 @@ impl Scene {
         mut value: f32,
         min: f32,
         max: f32,
-    ) -> Option<Setting> {
+    ) -> Option<SettingValue> {
         let mut change = None;
         ui.label(label);
         ui.spacing_mut().slider_width = 220.0;
         if ui.add(egui::Slider::new(&mut value, min..=max)).changed() {
-            change = Some(Setting::Float(value))
+            change = Some(SettingValue::Float(value))
         }
         ui.end_row();
         change
     }
 
-    fn render_colour3(ui: &mut egui::Ui, label: &String, mut value: [f32; 3]) -> Option<Setting> {
+    fn render_colour3(
+        ui: &mut egui::Ui,
+        label: &String,
+        mut value: [f32; 3],
+    ) -> Option<SettingValue> {
         let mut change = None;
         ui.label(label);
         if ui.color_edit_button_rgb(&mut value).changed() {
-            change = Some(Setting::Colour3(value));
+            change = Some(SettingValue::Colour3(value));
         }
         ui.end_row();
 
@@ -87,9 +98,9 @@ impl Scene {
         &mut self,
         ui: &mut egui::Ui,
         scene_settings: &Settings,
-        changes: &mut Vec<(String, Setting)>,
-    ) -> bool {
-        let mut open = true;
+        changes: &mut Vec<(String, SettingValue)>,
+    ) -> SceneUiResult {
+        let mut result = SceneUiResult::Open;
 
         let mut group_count = 0;
 
@@ -103,7 +114,7 @@ impl Scene {
                                     SettingDescriptor::Colour3 { label, .. } => {
                                         let value = {
                                             match scene_settings.get(key).unwrap() {
-                                                Setting::Colour3(value) => {
+                                                SettingValue::Colour3(value) => {
                                                     [value[0], value[1], value[2]]
                                                 }
                                                 _ => panic!("Setting type mismatch in Ui"),
@@ -117,7 +128,7 @@ impl Scene {
                                     } => {
                                         let value = {
                                             match scene_settings.get(key).unwrap() {
-                                                Setting::Float(value) => *value,
+                                                SettingValue::Float(value) => *value,
                                                 _ => panic!("Setting type mismatch in Ui"),
                                             }
                                         };
@@ -145,17 +156,17 @@ impl Scene {
             if ui.button("Reset").clicked() {
                 changes.clear();
                 for (key, value) in self.setting_descriptors.iter() {
-                    changes.push((key.clone(), Setting::from_descriptor(value).unwrap()));
+                    changes.push((key.clone(), SettingValue::from_descriptor(value).unwrap()));
                 }
             }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if ui.button("Save").clicked() {
-                    open = false;
+                    result = SceneUiResult::Saved;
                 };
 
                 if ui.button("Cancel").clicked() {
-                    open = false;
+                    result = SceneUiResult::Closed;
                     changes.clear();
                     for (key, value) in self.original_values.iter() {
                         changes.push((key.clone(), value.clone()));
@@ -164,6 +175,6 @@ impl Scene {
             });
         });
 
-        open
+        result
     }
 }

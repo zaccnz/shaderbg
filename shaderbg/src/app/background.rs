@@ -10,13 +10,13 @@ use tao::{
 use crate::app::{AppEvent, AppState, WindowEvent};
 use shaderbg_render::{
     gfx::{buffer::ShaderToy, Gfx, GfxContext},
-    scene::{Resources, Setting},
+    scene::{io::setting::SettingValue, Resources},
 };
 
 #[derive(Debug)]
 pub enum BackgroundEvent {
     TaoEvent(Event<'static, WindowEvent>),
-    SettingUpdated(String, Setting),
+    SettingUpdated(String, SettingValue),
     SceneChanged,
 }
 

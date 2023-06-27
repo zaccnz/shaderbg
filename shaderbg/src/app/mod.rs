@@ -16,7 +16,7 @@ use crate::{
     app::timer::TimerMessage,
     io::{Args, Config, ConfigUpdate, TrayConfig},
 };
-use shaderbg_render::{gfx::buffer::Time, scene::Setting};
+use shaderbg_render::{gfx::buffer::Time, scene::io::setting::SettingValue};
 
 mod background;
 mod menu;
@@ -44,7 +44,8 @@ pub enum AppEvent {
     BackgroundCreated(Background),
     BackgroundEvent(Event<'static, WindowEvent>),
     BackgroundClosed,
-    SettingUpdated(String, Setting),
+    SceneSettingsSaved,
+    SettingUpdated(String, SettingValue),
     ConfigUpdated(Box<[ConfigUpdate]>),
     SetScene(String),
 }
@@ -181,6 +182,21 @@ pub fn start_main(
                 }
                 AppEvent::EventLoopQuit => {
                     break;
+                }
+                AppEvent::SceneSettingsSaved => {
+                    if let Ok(state) = state.read() {
+                        if let Some(scene) = state.scene() {
+                            scene
+                                .settings
+                                .save(
+                                    state
+                                        .config
+                                        .settings_dir
+                                        .join(format!("{}.toml", state.scene_name().unwrap())),
+                                )
+                                .unwrap();
+                        }
+                    }
                 }
                 AppEvent::SettingUpdated(key, setting) => {
                     if let Ok(mut state) = state.write() {

@@ -29,7 +29,7 @@ pub struct State {
 
 impl State {
     pub fn new(args: Args, mut config: Config) -> State {
-        let scenes = load_scenes("scenes".to_string());
+        let scenes = load_scenes(config.scene_dir.clone(), config.settings_dir.clone());
 
         // find current scene
         let mut current_scene = None;
@@ -98,6 +98,19 @@ impl State {
             Some(index) => {
                 if index < self.scenes.len() {
                     Some(&self.scenes[index].scene)
+                } else {
+                    None
+                }
+            }
+            None => None,
+        }
+    }
+
+    pub fn scene_name(&self) -> Option<&str> {
+        match self.current_scene {
+            Some(index) => {
+                if index < self.scenes.len() {
+                    Some(&self.scenes[index].name)
                 } else {
                     None
                 }

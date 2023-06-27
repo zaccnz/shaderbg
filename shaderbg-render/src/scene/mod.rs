@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs, path::PathBuf};
 
-use io::{resource::Resource, Descriptor};
+use io::{resource::Resource, setting::SettingParseError, Descriptor};
 
 pub mod io;
 mod resources;
@@ -26,8 +26,12 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn load(path: PathBuf) -> Result<Scene, SceneError> {
-        let toml_path = path.join("scene.toml");
+    pub fn load(
+        name: String,
+        scene_dir: PathBuf,
+        settings_dir: PathBuf,
+    ) -> Result<Scene, SceneError> {
+        let toml_path = scene_dir.join(name.clone()).join("scene.toml");
         let toml_content = match fs::read(toml_path.as_path()) {
             Ok(content) => content,
             Err(error) => return Err(SceneError::SceneTomlError(error)),
@@ -58,7 +62,7 @@ impl Scene {
         for (id, resource) in descriptor.resources.iter() {
             match resource {
                 Resource::Shader { src, .. } | Resource::ShaderToy { src, .. } => {
-                    let path = path.join(src);
+                    let path = scene_dir.join(name.clone()).join(src);
                     let content = match fs::read(path) {
                         Ok(content) => content,
                         Err(error) => {
@@ -76,9 +80,14 @@ impl Scene {
             }
         }
 
-        let settings = match Settings::new(&descriptor) {
-            Ok(settings) => settings,
-            Err(error) => return Err(SceneError::SettingsError(error)),
+        let settings_path = settings_dir.join(format!("{}.toml", name));
+        let settings = if let Some(settings) = Settings::load(settings_path.clone(), &descriptor) {
+            settings
+        } else {
+            match Settings::new(&descriptor) {
+                Ok(settings) => settings,
+                Err(error) => return Err(SceneError::SettingsError(error)),
+            }
         };
 
         Ok(Scene {

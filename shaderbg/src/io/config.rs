@@ -86,7 +86,7 @@ impl Default for Config {
     fn default() -> Config {
         Config {
             scene: None,
-            scene_dir: std::path::PathBuf::from("./scene/"),
+            scene_dir: std::path::PathBuf::from("./scenes/"),
             settings_dir: std::path::PathBuf::from("./settings/"),
             theme: UiTheme::Dark,
             startup_with: StartupWith::Tray,

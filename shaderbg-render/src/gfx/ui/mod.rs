@@ -1,7 +1,7 @@
 mod browser;
 mod scene;
 pub use browser::Browser;
-pub use scene::Scene;
+pub use scene::{Scene, SceneUiResult};
 
 use egui::{Context, FullOutput, RawInput};
 use egui_wgpu::{renderer::ScreenDescriptor, Renderer};

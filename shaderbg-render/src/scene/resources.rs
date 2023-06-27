@@ -28,8 +28,9 @@ use crate::{
                 BufferStorage, BufferStorageType, BufferVertex, BufferVertexAttribute,
                 BufferVertexAttributeFormat, BufferVertexStep, Resource, ShaderFormat,
             },
+            setting::SettingValue,
         },
-        Scene, Setting,
+        Scene,
     },
 };
 
@@ -965,7 +966,7 @@ impl Resources {
         })
     }
 
-    pub fn update_setting(&mut self, key: String, value: Setting) {
+    pub fn update_setting(&mut self, key: String, value: SettingValue) {
         if let Some(uniform_id) = self.setting_lookup.get(&key) {
             // update data in uniform
             let (content, offsets) = match self.uniforms.get_mut(uniform_id) {

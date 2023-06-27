@@ -16,8 +16,8 @@ use crate::{
     ui,
 };
 use shaderbg_render::{
-    gfx::{self, buffer::ShaderToy, Gfx, GfxContext},
-    scene::{Resources, Setting, Settings},
+    gfx::{self, buffer::ShaderToy, ui::SceneUiResult, Gfx, GfxContext},
+    scene::{io::setting::SettingValue, Resources, Settings},
 };
 
 #[derive(Debug)]
@@ -126,7 +126,7 @@ impl Window {
         }
     }
 
-    pub fn update_setting(&mut self, key: String, value: Setting) {
+    pub fn update_setting(&mut self, key: String, value: SettingValue) {
         if let Some(settings) = self.settings.as_mut() {
             settings.update(&key, value.clone());
         }
@@ -240,6 +240,7 @@ impl Window {
                 }
 
                 let mut open_browser = false;
+                let mut scene_ui_result = SceneUiResult::Open;
 
                 let full_output = self.gfx.render(
                     self.resources.as_mut(),
@@ -285,25 +286,22 @@ impl Window {
 
                         let settings = self.settings.as_ref();
 
-                        let mut scene_ui_open = true;
-
                         if let Some(scene_ui) = self.scene_ui.as_mut() {
                             let mut open = true;
                             egui::Window::new("Scene Settings")
-                                .open(&mut scene_ui_open)
+                                .open(&mut open)
                                 .resizable(false)
                                 .show(ctx, |ui| {
                                     if let Some(settings) = settings {
-                                        open = scene_ui.render(ui, settings, &mut changes);
+                                        scene_ui_result =
+                                            scene_ui.render(ui, settings, &mut changes);
                                     } else {
                                         ui.heading("An error occurred");
                                     }
                                 });
-                            scene_ui_open &= open;
-                        }
-
-                        if !scene_ui_open {
-                            self.scene_ui.take();
+                            if !open {
+                                scene_ui_result = SceneUiResult::Closed;
+                            }
                         }
 
                         let mut browser_open = true;
@@ -357,6 +355,17 @@ impl Window {
                     self.app_state
                         .send(super::AppEvent::SettingUpdated(key, value))
                         .unwrap();
+                }
+
+                match scene_ui_result {
+                    SceneUiResult::Closed => {
+                        self.scene_ui.take();
+                    }
+                    SceneUiResult::Saved => {
+                        self.app_state.send(AppEvent::SceneSettingsSaved).unwrap();
+                        self.scene_ui.take();
+                    }
+                    SceneUiResult::Open => (),
                 }
 
                 if open_browser {

@@ -1,73 +1,16 @@
-use std::collections::{hash_map::Iter, HashMap};
+use std::{
+    collections::{hash_map::Iter, HashMap},
+    fs,
+    path::PathBuf,
+};
 
-use hex_color::{HexColor, ParseHexColorError};
-
-use super::io::{setting::Setting as SettingDescriptor, Descriptor};
-
-#[derive(Debug)]
-pub enum SettingParseError {
-    InvalidHex(ParseHexColorError),
-}
-
-#[derive(Clone, Debug)]
-pub enum Setting {
-    Float(f32),
-    Colour3([f32; 3]),
-}
-
-impl Setting {
-    pub fn from_descriptor(setting: &SettingDescriptor) -> Result<Setting, SettingParseError> {
-        match setting {
-            SettingDescriptor::Float { value, .. } => Ok(Setting::Float(*value)),
-            SettingDescriptor::Colour3 { value, .. } => {
-                let colour = match HexColor::parse(value.as_str()) {
-                    Ok(colour) => colour,
-                    Err(error) => return Err(SettingParseError::InvalidHex(error)),
-                };
-
-                Ok(Setting::Colour3([
-                    (colour.r as f32) / 255.0,
-                    (colour.g as f32) / 255.0,
-                    (colour.b as f32) / 255.0,
-                ]))
-            }
-        }
-    }
-
-    pub fn size(&self) -> usize {
-        match self {
-            Setting::Float(_) => 4,
-            Setting::Colour3(_) => 12,
-        }
-    }
-
-    pub fn alignment(&self) -> usize {
-        match self {
-            Setting::Float(_) => 4,
-            Setting::Colour3(_) => 16,
-        }
-    }
-
-    pub fn write(&self, buffer: &mut [u8]) {
-        match self {
-            Setting::Float(value) => {
-                let bytes = bytemuck::bytes_of(value);
-                for i in 0..self.size() {
-                    buffer[i] = bytes[i];
-                }
-            }
-            Setting::Colour3(value) => {
-                let bytes = bytemuck::bytes_of(value);
-                for i in 0..self.size() {
-                    buffer[i] = bytes[i];
-                }
-            }
-        }
-    }
-}
+use crate::scene::io::{
+    setting::{SettingParseError, SettingValue},
+    Descriptor,
+};
 
 pub struct Settings {
-    data: HashMap<String, Setting>,
+    data: HashMap<String, SettingValue>,
 }
 
 #[allow(dead_code)]
@@ -76,22 +19,89 @@ impl Settings {
         let mut data = HashMap::new();
 
         for (key, setting) in descriptor.settings.iter() {
-            let setting = Setting::from_descriptor(setting)?;
+            let setting = SettingValue::from_descriptor(setting)?;
             data.insert(key.clone(), setting);
         }
 
         Ok(Settings { data })
     }
 
-    pub fn get(&self, key: &String) -> Option<&Setting> {
+    pub fn load(path: PathBuf, descriptor: &Descriptor) -> Option<Settings> {
+        let settings_string = if let Ok(settings) = fs::read_to_string(path.clone()) {
+            settings
+        } else {
+            eprintln!("Scene settings \"{:?}\" not found, ignoring", path);
+            return None;
+        };
+
+        let mut data: HashMap<String, SettingValue> = match toml::from_str(&settings_string) {
+            Ok(data) => data,
+            Err(error) => {
+                eprintln!(
+                    "Failed to parse scene settings file \"{:?}\":\n{:#?}\nIgnoring",
+                    path, error
+                );
+                return None;
+            }
+        };
+
+        for (key, setting) in descriptor.settings.iter() {
+            let setting = if let Ok(setting) = SettingValue::from_descriptor(setting) {
+                setting
+            } else {
+                // oops.  we are going to have bigger problems.
+                return None;
+            };
+
+            if let Some(value) = data.get(key) {
+                if std::mem::discriminant(value) != std::mem::discriminant(&setting) {
+                    eprintln!(
+                        "Scene setting {}: {:?} does not match scene.toml's {:?}",
+                        key, value, setting
+                    );
+                }
+            } else {
+                data.insert(key.clone(), setting);
+            }
+        }
+
+        Some(Settings { data })
+    }
+
+    pub fn save(&self, path: PathBuf) -> Result<(), String> {
+        let parent = if let Some(path) = path.parent() {
+            path
+        } else {
+            panic!("Failed to find parent of {:?}", path);
+        };
+
+        if let Err(err) = fs::create_dir_all(parent) {
+            panic!(
+                "Failed to create settings directory {:?}, error: {:?}",
+                err, parent
+            );
+        }
+
+        let settings_string = match toml::to_string(&self.data) {
+            Ok(str) => str,
+            Err(e) => return Err(e.to_string()),
+        };
+
+        match fs::write(path, settings_string) {
+            Ok(()) => Ok(()),
+            Err(e) => return Err(e.to_string()),
+        }
+    }
+
+    pub fn get(&self, key: &String) -> Option<&SettingValue> {
         self.data.get(key)
     }
 
-    pub fn update(&mut self, key: &String, value: Setting) {
+    pub fn update(&mut self, key: &String, value: SettingValue) {
         *self.data.get_mut(key).unwrap() = value;
     }
 
-    pub fn iter(&self) -> Iter<String, Setting> {
+    pub fn iter(&self) -> Iter<String, SettingValue> {
         self.data.iter()
     }
 
@@ -107,7 +117,7 @@ impl Settings {
 
     pub fn reset(&mut self, descriptor: &Descriptor) -> Result<(), SettingParseError> {
         for (key, setting) in descriptor.settings.iter() {
-            let setting = Setting::from_descriptor(setting)?;
+            let setting = SettingValue::from_descriptor(setting)?;
             *self.data.get_mut(key).unwrap() = setting;
         }
 

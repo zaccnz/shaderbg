@@ -247,7 +247,7 @@ async fn run() {
                                         ui,
                                         &scenes[current_scene].1.settings,
                                         &mut changes,
-                                    );
+                                    ) == gfx::ui::SceneUiResult::Open;
                                 });
                         }
                         if !open || !win_open {
