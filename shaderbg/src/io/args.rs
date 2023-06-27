@@ -7,23 +7,22 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
-    /// Start the desktop background
+    /// Start with desktop background
     #[arg(short, long)]
     pub background: Option<bool>,
 
-    /// Start the configurator window
+    /// Start without configuration window
     #[arg(short, long)]
-    pub window: Option<bool>,
+    pub no_window: bool,
 
-    /// Start the system tray menu
+    /// Start with system tray menu
     #[arg(short, long)]
     pub tray: Option<bool>,
 
-    /// Default scene
+    /// Set a specific scene
     #[arg(short, long)]
     pub scene: Option<String>,
 
-    /// Scene directory (by default, [shaderbg path]/scenes/)
-    #[arg(short = 'd', long)]
-    pub scene_dir: Option<std::path::PathBuf>,
+    #[arg(long, hide = true)]
+    pub system_startup: bool,
 }

@@ -4,14 +4,16 @@
 use tao::{
     dpi::{LogicalSize, PhysicalSize},
     event::{Event, WindowEvent as TaoWindowEvent},
-    event_loop::{ControlFlow, EventLoopWindowTarget},
+    event_loop::EventLoopWindowTarget,
     keyboard::KeyCode,
-    window::{Window as TaoWindow, WindowBuilder, WindowId},
+    window::{Theme, Window as TaoWindow, WindowBuilder, WindowId},
 };
 
 use crate::{
     app::{AppEvent, AppState, MenuBuilder, WindowEvent},
-    egui_tao, ui,
+    egui_tao,
+    io::{TrayConfig, UiTheme},
+    ui,
 };
 use shaderbg_render::{
     gfx::{self, buffer::ShaderToy, Gfx, GfxContext},
@@ -20,8 +22,9 @@ use shaderbg_render::{
 
 #[derive(Debug)]
 pub enum Windows {
-    SceneBrowser,
     SceneSettings,
+    SceneBrowser,
+    ConfigureBackground,
     Settings,
     Performance,
 }
@@ -69,6 +72,22 @@ impl Window {
 
         let size = window.inner_size();
         let gfx = pollster::block_on(Gfx::new(gfx_context, size.width, size.height, true));
+
+        let theme = { app_state.get().config.theme.clone() };
+
+        let visuals = match theme {
+            UiTheme::System => {
+                if window.theme() == Theme::Dark {
+                    egui::Visuals::dark()
+                } else {
+                    egui::Visuals::light()
+                }
+            }
+            UiTheme::Light => egui::Visuals::light(),
+            UiTheme::Dark => egui::Visuals::dark(),
+        };
+
+        gfx.ui.as_ref().unwrap().context().set_visuals(visuals);
 
         let mut egui_platform = egui_tao::State::new(&window);
         egui_platform.set_pixels_per_point(window.scale_factor() as f32);
@@ -121,7 +140,7 @@ impl Window {
         self.window.id()
     }
 
-    pub fn handle(&mut self, event: Event<WindowEvent>, _control_flow: &mut ControlFlow) -> bool {
+    pub fn handle(&mut self, event: Event<WindowEvent>) -> bool {
         if let Event::WindowEvent { event, .. } = &event {
             if let Some(ui) = self.gfx.ui.as_ref() {
                 let _ = self.egui.on_event(&ui.context, event);
@@ -133,6 +152,15 @@ impl Window {
                 event: TaoWindowEvent::CloseRequested,
                 ..
             } => {
+                let open_tray = {
+                    let state = self.app_state.get();
+                    state.config.tray_config == TrayConfig::CloseTo
+                };
+                if open_tray {
+                    self.app_state
+                        .send(AppEvent::Window(WindowEvent::StartTray))
+                        .unwrap();
+                }
                 return false;
             }
             Event::WindowEvent {
@@ -176,19 +204,21 @@ impl Window {
                 event: TaoWindowEvent::ThemeChanged(theme),
                 ..
             } => {
-                match theme {
-                    tao::window::Theme::Dark => {
-                        if let Some(ui) = self.gfx.ui.as_ref() {
-                            ui.context().set_visuals(egui::Visuals::dark());
+                if self.app_state.get().config.theme == UiTheme::System {
+                    match theme {
+                        tao::window::Theme::Dark => {
+                            if let Some(ui) = self.gfx.ui.as_ref() {
+                                ui.context().set_visuals(egui::Visuals::dark());
+                            }
                         }
-                    }
-                    tao::window::Theme::Light => {
-                        if let Some(ui) = self.gfx.ui.as_ref() {
-                            ui.context().set_visuals(egui::Visuals::light());
+                        tao::window::Theme::Light => {
+                            if let Some(ui) = self.gfx.ui.as_ref() {
+                                ui.context().set_visuals(egui::Visuals::light());
+                            }
                         }
-                    }
-                    _ => (),
-                };
+                        _ => (),
+                    };
+                }
             }
             Event::MainEventsCleared => self.window.request_redraw(),
             Event::RedrawEventsCleared => {
@@ -359,14 +389,34 @@ impl Window {
 
     pub fn open_ui_window(&mut self, window: Windows) {
         match window {
-            Windows::SceneBrowser => todo!(),
-            Windows::SceneSettings => {
-                if let Some(scene) = self.app_state.get().scene() {
-                    self.scene_ui = Some(gfx::ui::Scene::new(&scene.descriptor, &scene.settings));
+            Windows::SceneBrowser => {
+                if self.browser.is_none() {
+                    self.browser = Some(gfx::ui::Browser::new(
+                        self.app_state
+                            .get()
+                            .scenes
+                            .iter()
+                            .map(|entry| (entry.name.clone().to_string(), &entry.scene))
+                            .collect(),
+                        &self.gfx.device,
+                    ));
                 }
             }
-            Windows::Settings => todo!(),
+            Windows::SceneSettings => {
+                if self.scene_ui.is_none() {
+                    if let Some(scene) = self.app_state.get().scene() {
+                        self.scene_ui =
+                            Some(gfx::ui::Scene::new(&scene.descriptor, &scene.settings));
+                    }
+                }
+            }
+            Windows::Settings => {
+                if self.settings_ui.is_none() {
+                    self.settings_ui = Some(ui::Settings::new(self.app_state.clone()));
+                }
+            }
             Windows::Performance => todo!(),
+            Windows::ConfigureBackground => todo!(),
         }
     }
 
@@ -396,6 +446,22 @@ impl Window {
             self.resources = None;
             self.settings = None;
         }
+    }
+
+    pub fn update_theme(&mut self, theme: UiTheme) {
+        let visuals = match theme {
+            UiTheme::Dark => egui::Visuals::dark(),
+            UiTheme::Light => egui::Visuals::light(),
+            UiTheme::System => {
+                if self.window.theme() == Theme::Dark {
+                    egui::Visuals::dark()
+                } else {
+                    egui::Visuals::light()
+                }
+            }
+        };
+
+        self.gfx.ui.as_ref().unwrap().context().set_visuals(visuals);
     }
 
     pub fn will_close(&self, event_loop: &EventLoopWindowTarget<WindowEvent>) {

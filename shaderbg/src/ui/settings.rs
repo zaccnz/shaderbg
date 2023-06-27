@@ -1,86 +1,140 @@
 use egui::{Ui, WidgetText};
 
-use crate::app::AppState;
+use crate::{
+    app::{AppEvent, AppState, WindowEvent},
+    io::{ConfigUpdate, StartupWith, TrayConfig, UiTheme},
+};
 
-#[derive(Clone, Debug, PartialEq)]
-enum UiTheme {
-    Light,
-    Dark,
-    System,
-}
-
-#[derive(Clone, PartialEq)]
-enum StartupWith {
-    Tray,
-    Window,
-    Neither,
-}
-
-impl std::fmt::Debug for StartupWith {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Tray => write!(f, "Start tray"),
-            Self::Window => write!(f, "Open window"),
-            Self::Neither => write!(f, "Neither"),
-        }
-    }
-}
-
-#[derive(Clone, PartialEq)]
-enum TrayState {
-    Enabled,
-    MinimizeTo,
-    CloseTo,
-    Disabled,
-}
-
-impl std::fmt::Debug for TrayState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Enabled => write!(f, "Enabled"),
-            Self::MinimizeTo => write!(f, "Minimize to tray"),
-            Self::CloseTo => write!(f, "Close to tray"),
-            Self::Disabled => write!(f, "Disabled"),
-        }
-    }
+enum SettingsError {
+    SceneDir(Option<String>),
+    SettingsDir(Option<String>),
 }
 
 pub struct Settings {
-    #[allow(dead_code)]
     app_state: AppState,
     scene_dir: String,
-    preference_dir: String,
+    settings_dir: String,
     launch_on_startup: bool,
-    background: bool,
-    ui_theme: UiTheme,
     startup_with: StartupWith,
-    tray_state: TrayState,
+    startup_background: bool,
+    ui_theme: UiTheme,
+    tray_config: TrayConfig,
+    error: Option<SettingsError>,
 }
 
 impl Settings {
     pub fn new(app_state: AppState) -> Settings {
-        let (scene_dir, background) = {
+        let (
+            scene_dir,
+            settings_dir,
+            launch_on_startup,
+            ui_theme,
+            startup_with,
+            startup_background,
+            tray_config,
+        ) = {
             let config = &app_state.get().config;
 
             (
                 config.scene_dir.to_str().unwrap().to_string(),
-                config.background,
+                config.settings_dir.to_str().unwrap().to_string(),
+                config.launch_on_startup,
+                config.theme.clone(),
+                config.startup_with.clone(),
+                config.startup_background,
+                config.tray_config.clone(),
             )
         };
 
         Settings {
             app_state,
-            scene_dir: scene_dir.clone(),
-            preference_dir: ".".to_string(),
-            launch_on_startup: false,
-            background,
-            ui_theme: UiTheme::Dark,
-            startup_with: StartupWith::Tray,
-            tray_state: TrayState::CloseTo,
+            scene_dir,
+            settings_dir,
+            launch_on_startup,
+            startup_background,
+            startup_with,
+            ui_theme,
+            tray_config,
+            error: None,
         }
     }
 
-    fn save(&self) {}
+    fn save(&mut self) -> bool {
+        let config = &self.app_state.get().config;
+        let mut changes = Vec::new();
+
+        if self.scene_dir != config.scene_dir.to_str().unwrap() {
+            let path_buf = std::path::PathBuf::from(self.scene_dir.clone());
+            if !path_buf.exists() {
+                self.error = Some(SettingsError::SceneDir(None));
+                return false;
+            }
+            if path_buf.is_file() {
+                self.error = Some(SettingsError::SceneDir(Some(
+                    "is already a file".to_string(),
+                )));
+                return false;
+            }
+            changes.push(ConfigUpdate::SceneDir(path_buf));
+        }
+
+        if self.settings_dir != config.settings_dir.to_str().unwrap() {
+            let path_buf = std::path::PathBuf::from(self.settings_dir.clone());
+            if !path_buf.exists() {
+                self.error = Some(SettingsError::SettingsDir(None));
+                return false;
+            }
+            if path_buf.is_file() {
+                self.error = Some(SettingsError::SettingsDir(Some(
+                    "is already a file".to_string(),
+                )));
+                return false;
+            }
+            changes.push(ConfigUpdate::SettingsDir(path_buf));
+        }
+
+        if self.launch_on_startup != config.launch_on_startup {
+            // try install
+            changes.push(ConfigUpdate::LaunchOnStartup(self.launch_on_startup));
+        }
+
+        if self.startup_with != config.startup_with {
+            changes.push(ConfigUpdate::StartupWith(self.startup_with.clone()));
+        }
+
+        if self.startup_background != config.startup_background {
+            changes.push(ConfigUpdate::StartupBackground(self.startup_background));
+        }
+
+        if self.ui_theme != config.theme {
+            changes.push(ConfigUpdate::Theme(self.ui_theme.clone()));
+        }
+
+        if self.tray_config != config.tray_config {
+            match self.tray_config {
+                TrayConfig::Enabled => {
+                    self.app_state
+                        .send(AppEvent::Window(WindowEvent::StartTray))
+                        .unwrap();
+                }
+                TrayConfig::Disabled => {
+                    self.app_state
+                        .send(AppEvent::Window(WindowEvent::StopTray))
+                        .unwrap();
+                }
+                _ => {}
+            }
+            changes.push(ConfigUpdate::TrayConfig(self.tray_config.clone()));
+        }
+
+        drop(config);
+
+        self.app_state
+            .send(AppEvent::ConfigUpdated(changes.into_boxed_slice()))
+            .unwrap();
+
+        true
+    }
 
     fn combo_box<T>(
         ui: &mut Ui,
@@ -120,8 +174,8 @@ impl Settings {
                     &mut self.startup_with,
                     &[StartupWith::Tray, StartupWith::Window, StartupWith::Neither],
                 );
-                ui.checkbox(&mut self.background, "Start background");
-                if !self.background && self.startup_with == StartupWith::Neither {
+                ui.checkbox(&mut self.startup_background, "Start background");
+                if !self.startup_background && self.startup_with == StartupWith::Neither {
                     ui.label("The application will not open on startup");
                 }
             });
@@ -133,12 +187,11 @@ impl Settings {
             ui,
             "tray_state_combo",
             Some("System Tray"),
-            &mut self.tray_state,
+            &mut self.tray_config,
             &[
-                TrayState::Enabled,
-                TrayState::MinimizeTo,
-                TrayState::CloseTo,
-                TrayState::Disabled,
+                TrayConfig::Enabled,
+                TrayConfig::CloseTo,
+                TrayConfig::Disabled,
             ],
         );
 
@@ -156,17 +209,55 @@ impl Settings {
         ui.heading("Paths");
         ui.label("Scene Directory");
         ui.text_edit_singleline(&mut self.scene_dir);
-        ui.label("Preference Directory");
-        ui.text_edit_singleline(&mut self.preference_dir);
+        if let Some(SettingsError::SceneDir(error)) = self.error.as_ref() {
+            ui.label(format!(
+                "Scene directory {}",
+                if let Some(error) = error.as_ref() {
+                    error.as_str()
+                } else {
+                    "does not exist"
+                }
+            ));
+            if error.is_none() && ui.button("Create").clicked() {
+                let pathbuf = std::path::PathBuf::from(self.scene_dir.clone());
+                if let Err(error) = std::fs::create_dir_all(pathbuf.as_path()) {
+                    self.error = Some(SettingsError::SceneDir(Some(error.to_string())));
+                } else {
+                    self.error.take();
+                }
+            }
+        };
+        ui.label("Settings Directory");
+        ui.text_edit_singleline(&mut self.settings_dir);
+        if let Some(SettingsError::SettingsDir(error)) = self.error.as_ref() {
+            ui.label(format!(
+                "Settings directory {}",
+                if let Some(error) = error.as_ref() {
+                    error.as_str()
+                } else {
+                    "does not exist"
+                }
+            ));
+            if error.is_none() && ui.button("Create").clicked() {
+                let pathbuf = std::path::PathBuf::from(self.settings_dir.clone());
+                if let Err(error) = std::fs::create_dir_all(pathbuf.as_path()) {
+                    self.error = Some(SettingsError::SettingsDir(Some(error.to_string())));
+                } else {
+                    self.error.take();
+                }
+            }
+        };
 
         ui.add_space(10.0);
         ui.horizontal(|ui| {
             if ui.button("Cancel").clicked() {
-                open = false
+                open = false;
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if ui.button("Save").clicked() {
-                    self.save();
+                    if self.save() {
+                        open = false;
+                    }
                 }
             });
         });

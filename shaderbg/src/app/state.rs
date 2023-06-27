@@ -13,7 +13,7 @@ use crate::{
     app::{AppEvent, AppEventSender, AppMessage},
     io::{
         scenes::{load_scenes, SceneEntry},
-        Args, Config,
+        Args, Config, StartupWith, TrayConfig,
     },
 };
 use shaderbg_render::{gfx::buffer::Time, scene::Scene};
@@ -70,10 +70,23 @@ impl State {
             config.push_recent_scene(name);
         }
 
+        // other state
+        let window_open =
+            !args.no_window && (!args.system_startup || config.startup_with == StartupWith::Window);
+
+        let tray_open = args.tray.unwrap_or(
+            config.tray_config == TrayConfig::Enabled
+                || args.system_startup && config.startup_with == StartupWith::Tray,
+        );
+
+        let background_open = args
+            .background
+            .unwrap_or(args.system_startup && config.startup_background);
+
         State {
-            window_open: args.window.unwrap_or(config.window),
-            tray_open: args.tray.unwrap_or(config.tray),
-            background_open: args.background.unwrap_or(config.background),
+            window_open,
+            tray_open,
+            background_open,
             config: config,
             scenes,
             current_scene,

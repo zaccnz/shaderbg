@@ -146,15 +146,19 @@ impl MenuBuilder {
             _ => todo!(),
         };
 
-        let scene_browser_id = menu_add(&mut menu, MenuButton::new("Scene Browser"));
-        items.insert(scene_browser_id, |menu, _, _| {
-            menu.open_window(Windows::SceneBrowser)
-        });
         let scene_settings_id = menu_add(&mut menu, MenuButton::new("Scene Settings"));
         items.insert(scene_settings_id, |menu, _, _| {
             menu.open_window(Windows::SceneSettings)
         });
         menu_add_native(&mut menu, MenuItem::Separator);
+        let scene_browser_id = menu_add(&mut menu, MenuButton::new("Scene Browser"));
+        items.insert(scene_browser_id, |menu, _, _| {
+            menu.open_window(Windows::SceneBrowser)
+        });
+        let configure_background_id = menu_add(&mut menu, MenuButton::new("Configure Background"));
+        items.insert(configure_background_id, |menu, _, _| {
+            menu.open_window(Windows::ConfigureBackground)
+        });
         let settigns_id = menu_add(&mut menu, MenuButton::new("Settings"));
         items.insert(settigns_id, |menu, _, _| {
             menu.open_window(Windows::Settings);

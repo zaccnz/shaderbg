@@ -1,27 +1,27 @@
 /*
  * Window thread.  Runs the Event Loop and handles all WindowEvent messages
  */
-use std::time::Instant;
 use tao::{
     event::{Event, StartCause},
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
 
-use crate::app::{
-    AppEvent, AppEventSender, AppState, Background, MenuBuilder, Tray, Window, Windows,
+use crate::{
+    app::{AppEvent, AppEventSender, AppState, Background, MenuBuilder, Tray, Window, Windows},
+    io::UiTheme,
 };
 use shaderbg_render::scene::Setting;
 
 #[derive(Debug)]
 pub enum WindowEvent {
     StartWindow,
-    StopWindow,
     StartTray,
     StopTray,
     StartBackground,
     StopBackground,
     SettingUpdated(String, Setting),
     OpenUiWindow(Windows),
+    UpdateTheme(UiTheme),
     RebuildMenus,
     SceneChanged,
     Quit,
@@ -55,16 +55,18 @@ impl WindowThread {
         &mut self,
         event: Event<WindowEvent>,
         event_loop: &EventLoopWindowTarget<WindowEvent>,
-        control_flow: &mut ControlFlow,
+        app_state: &AppState,
     ) {
-        let window = self.window.take();
+        let open = if let Some(window) = self.window.as_mut() {
+            window.handle(event)
+        } else {
+            true
+        };
 
-        if let Some(mut window) = window {
-            if window.handle(event, control_flow) {
-                self.window = Some(window);
-            } else {
-                window.will_close(event_loop);
-            }
+        if !open {
+            app_state.send(AppEvent::WindowStateChange(false)).unwrap();
+            let window = self.window.take();
+            window.unwrap().will_close(event_loop);
         }
     }
 
@@ -76,14 +78,13 @@ impl WindowThread {
     ) {
         let mut handle = Some(handle);
         let mut background_window_id = None;
-        let mut last_frame = Instant::now();
         let mut menu_builder = MenuBuilder::new(app_state.clone());
 
         event_loop.run(move |event, event_loop, control_flow| {
             *control_flow = ControlFlow::Wait;
-            let mut started = false;
             match event {
                 Event::NewEvents(StartCause::Init) => {
+                    // THREAD START
                     #[cfg(target_os = "macos")]
                     {
                         use tao::platform::macos::{
@@ -92,10 +93,14 @@ impl WindowThread {
                         event_loop.set_activation_policy_at_runtime(ActivationPolicy::Accessory);
                     }
                     app_state.send(AppEvent::EventLoopReady).unwrap();
-                    started = true;
                 }
                 Event::LoopDestroyed => {
+                    // THREAD KILLED
+                    if let Some(window) = self.window.take() {
+                        window.will_close(event_loop);
+                    }
                     self.tray.take();
+
                     app_state.send(AppEvent::EventLoopQuit).unwrap();
                     handle.take().unwrap().join().unwrap();
                 }
@@ -110,9 +115,8 @@ impl WindowThread {
                                 &mut menu_builder,
                             ));
                         }
-                    }
-                    WindowEvent::StopWindow => {
-                        self.window.take();
+
+                        app_state.send(AppEvent::WindowStateChange(true)).unwrap();
                     }
                     WindowEvent::StartTray => {
                         if self.tray.is_some() {
@@ -141,14 +145,14 @@ impl WindowThread {
                     WindowEvent::StopBackground => {
                         background_window_id.take();
                     }
+                    WindowEvent::Quit => {
+                        *control_flow = ControlFlow::Exit;
+                    }
                     WindowEvent::SettingUpdated(key, value) => {
                         if let Some(mut window) = self.window.take() {
                             window.update_setting(key, value);
                             self.window = Some(window);
                         }
-                    }
-                    WindowEvent::Quit => {
-                        *control_flow = ControlFlow::Exit;
                     }
                     WindowEvent::OpenUiWindow(ui_window) => {
                         if self.window.is_none() {
@@ -176,6 +180,11 @@ impl WindowThread {
                             window.scene_changed();
                         }
                     }
+                    WindowEvent::UpdateTheme(theme) => {
+                        if let Some(window) = self.window.as_mut() {
+                            window.update_theme(theme);
+                        }
+                    }
                 },
                 Event::WindowEvent { window_id, .. } => {
                     let mut target = WindowEventTarget::None;
@@ -187,14 +196,14 @@ impl WindowThread {
                     }
 
                     if let Some(id) = background_window_id {
-                        if id == window_id {
+                        if window_id == id {
                             target = WindowEventTarget::Background;
                         }
                     }
 
                     match target {
                         WindowEventTarget::Window => {
-                            self.handle_window_event(event, event_loop, control_flow);
+                            self.handle_window_event(event, event_loop, &app_state);
                         }
                         WindowEventTarget::Background => {
                             if let Some(event) = event.to_static() {
@@ -202,12 +211,15 @@ impl WindowThread {
                             }
                         }
                         _ => {
-                            eprintln!("Window event has no target (window_id={:?})", window_id);
+                            eprintln!(
+                                "Window event has no target (window_id={:?}), {:?}",
+                                window_id, &event
+                            );
                         }
                     }
                 }
                 Event::RedrawEventsCleared => {
-                    self.handle_window_event(event, event_loop, control_flow);
+                    self.handle_window_event(event, event_loop, &app_state);
                     if background_window_id.is_some() {
                         app_state
                             .send(AppEvent::BackgroundEvent(Event::RedrawEventsCleared))
@@ -215,32 +227,18 @@ impl WindowThread {
                     }
                 }
                 Event::MainEventsCleared => {
-                    self.handle_window_event(event, event_loop, control_flow);
+                    self.handle_window_event(event, event_loop, &app_state);
                     if background_window_id.is_some() {
                         app_state
                             .send(AppEvent::BackgroundEvent(Event::MainEventsCleared))
                             .unwrap();
                     }
-
-                    let now = Instant::now();
-                    app_state
-                        .send(AppEvent::Update((now - last_frame).as_secs_f64()))
-                        .unwrap();
-                    last_frame = now;
                 }
                 Event::MenuEvent { .. } => {
                     menu_builder.handle_event(event);
                 }
                 Event::TrayEvent { .. } => {}
                 _ => (),
-            }
-
-            if !started
-                && self.window.is_none()
-                && self.tray.is_none()
-                && background_window_id.is_none()
-            {
-                *control_flow = ControlFlow::Exit;
             }
         });
     }
