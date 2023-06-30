@@ -211,10 +211,10 @@ impl EventLoopThread {
                             }
                         }
                         _ => {
-                            eprintln!(
+                            /*eprintln!(
                                 "Window event has no target (window_id={:?}), {:?}",
                                 window_id, &event
-                            );
+                            );*/
                         }
                     }
                 }

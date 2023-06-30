@@ -18,6 +18,7 @@ pub enum BackgroundEvent {
     TaoEvent(Event<'static, ThreadEvent>),
     SettingUpdated(String, SettingValue),
     SceneChanged,
+    Stop,
 }
 
 pub struct Background {
@@ -31,6 +32,8 @@ impl Debug for Background {
         f.debug_struct("Background").finish_non_exhaustive()
     }
 }
+
+static mut HAS_SWIZZLED: bool = false;
 
 // modified from 'swizzleSendEvent'.
 // https://github.com/maketechnology/cefrust/blob/6404c4dc0c984b3ca92fff7d42d7599cd432f088/cefrustlib/src/lib.rs#LL154C24-L154C24
@@ -94,12 +97,17 @@ fn swizzle_constrainframerect_toscreen() {
 
     let sel_swizzled_constrainframerect_toscreen = sel!(swizzled_constrainFrameRect:toScreen:);
     unsafe {
-        add_method(
-            cls,
-            sel_swizzled_constrainframerect_toscreen,
-            swizzled_constrainFrameRect_toScreen_
-                as extern "C" fn(&mut Object, Sel, NSRect, id) -> NSRect,
-        )
+        if !HAS_SWIZZLED {
+            add_method(
+                cls,
+                sel_swizzled_constrainframerect_toscreen,
+                swizzled_constrainFrameRect_toScreen_
+                    as extern "C" fn(&mut Object, Sel, NSRect, id) -> NSRect,
+            );
+            HAS_SWIZZLED = true;
+        } else {
+            return;
+        }
     };
 
     unsafe {
@@ -247,6 +255,10 @@ impl Background {
                         } else {
                             None
                         };
+                    }
+                    BackgroundEvent::Stop => {
+                        self.app_state.send(AppEvent::BackgroundClosed).unwrap();
+                        break;
                     }
                 },
                 _ => {}

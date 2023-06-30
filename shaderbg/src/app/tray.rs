@@ -31,21 +31,14 @@ impl Tray {
         #[cfg(target_os = "linux")]
         let system_tray = SystemTrayBuilder::new(icon.clone(), Some(tray_menu))
             .with_id(main_tray_id)
-            .with_temp_icon_dir(std::path::Path::new("/tmp/tao-examples"))
+            .with_temp_icon_dir(std::path::Path::new("/tmp/shaderbg"))
             .build(&event_loop)
             .unwrap();
 
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "windows", target_os = "macos"))]
         let system_tray = SystemTrayBuilder::new(icon.clone(), Some(tray_menu))
             .with_id(main_tray_id)
-            .with_tooltip("tao - windowing creation library")
-            .build(&event_loop)
-            .unwrap();
-
-        #[cfg(target_os = "macos")]
-        let system_tray = SystemTrayBuilder::new(icon.clone(), Some(tray_menu))
-            .with_id(main_tray_id)
-            .with_tooltip("tao - windowing creation library")
+            .with_tooltip("shaderbg")
             .build(&event_loop)
             .unwrap();
 

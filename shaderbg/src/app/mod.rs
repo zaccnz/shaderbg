@@ -146,8 +146,13 @@ pub fn start_main(
                 }
                 AppEvent::BackgroundClosed => {
                     proxy.send_event(ThreadEvent::StopBackground).unwrap();
-                    background_channel.take();
+                    let channel = background_channel.take();
                     if let Some(handle) = background_handle.take() {
+                        if !handle.is_finished() {
+                            if let Some(channel) = channel {
+                                channel.send(BackgroundEvent::Stop).unwrap();
+                            }
+                        }
                         handle.join().unwrap();
                     }
 

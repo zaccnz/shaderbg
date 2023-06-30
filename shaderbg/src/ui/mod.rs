@@ -1,4 +1,8 @@
+mod background;
+mod performance;
 mod settings;
+pub use background::*;
+pub use performance::*;
 pub use settings::*;
 
 use tao::{
@@ -21,7 +25,9 @@ pub struct AppUi {
     app_state: AppState,
     scene: Option<gfx::ui::Scene>,
     browser: Option<gfx::ui::Browser>,
+    background: Option<Background>,
     settings: Option<Settings>,
+    performance: Option<Performance>,
 }
 
 impl AppUi {
@@ -50,7 +56,9 @@ impl AppUi {
             app_state,
             scene: None,
             browser: None,
+            background: None,
             settings: None,
+            performance: None,
         }
     }
 
@@ -117,30 +125,48 @@ impl AppUi {
         ))
     }
 
+    fn background(app_state: &AppState) -> Option<Background> {
+        Some(Background::new(app_state.clone()))
+    }
+
     fn settings(app_state: &AppState) -> Option<Settings> {
         Some(Settings::new(app_state.clone()))
     }
 
+    fn performance() -> Option<Performance> {
+        Some(Performance::new())
+    }
+
     fn main_menu(&mut self, ui: &mut egui::Ui, gfx: &Gfx) {
-        if let Some(scene) = self.app_state.get().scene() {
+        let mut window = None;
+
+        if self.app_state.get().scene().is_some() {
             ui.label("Scene");
             if ui.button("Pause").clicked() {}
             if ui.button("Reload").clicked() {}
             if ui.button("Scene Settings").clicked() {
-                self.scene = Self::scene_ui(scene);
+                window = Some(Windows::SceneSettings);
             }
         } else {
             ui.heading("No Scene Loaded");
         }
         ui.label("App");
         if ui.button("Scene Browser").clicked() {
-            self.browser = Self::browser(&self.app_state, gfx);
+            window = Some(Windows::SceneBrowser);
         }
-        if ui.button("Configure Background").clicked() {}
+        if ui.button("Configure Background").clicked() {
+            window = Some(Windows::ConfigureBackground);
+        }
         if ui.button("Settings").clicked() {
-            self.settings = Self::settings(&self.app_state);
+            window = Some(Windows::Settings);
         }
-        if ui.button("Performance").clicked() {}
+        if ui.button("Performance").clicked() {
+            window = Some(Windows::Performance);
+        }
+
+        if let Some(window) = window {
+            self.open_window(window, gfx);
+        }
     }
 
     pub fn render(
@@ -216,6 +242,19 @@ impl AppUi {
             self.browser.take();
         }
 
+        let mut background_open = true;
+        if let Some(background) = self.background.as_ref() {
+            egui::Window::new("Configure Background")
+                .open(&mut background_open)
+                .resizable(false)
+                .show(ctx, |ui| {
+                    background.render(ui);
+                });
+        }
+        if !background_open {
+            self.background.take();
+        }
+
         let mut settings_open = true;
         if let Some(settings) = self.settings.as_mut() {
             egui::Window::new("Settings")
@@ -227,6 +266,19 @@ impl AppUi {
         }
         if !settings_open {
             self.settings.take();
+        }
+
+        let mut performance_open = true;
+        if let Some(performance) = self.performance.as_ref() {
+            egui::Window::new("Configure Background")
+                .open(&mut performance_open)
+                .resizable(false)
+                .show(ctx, |ui| {
+                    performance.render(ui);
+                });
+        }
+        if !performance_open {
+            self.performance.take();
         }
     }
 
@@ -249,8 +301,16 @@ impl AppUi {
                     self.settings = Self::settings(&self.app_state);
                 }
             }
-            Windows::Performance => todo!(),
-            Windows::ConfigureBackground => todo!(),
+            Windows::Performance => {
+                if self.performance.is_none() {
+                    self.performance = Self::performance();
+                }
+            }
+            Windows::ConfigureBackground => {
+                if self.background.is_none() {
+                    self.background = Self::background(&self.app_state);
+                }
+            }
         }
     }
 }
