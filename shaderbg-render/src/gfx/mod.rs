@@ -107,7 +107,7 @@ impl Gfx {
         self.surface.configure(&self.device, &self.config);
     }
 
-    pub fn render<F: FnOnce(&egui::Context)>(
+    pub fn render<F: FnOnce(&egui::Context, &Gfx)>(
         &mut self,
         scene: Option<&mut Resources>,
         time: Time,
@@ -137,7 +137,9 @@ impl Gfx {
 
         let mut full_output = None;
 
-        if let Some(ui) = self.ui.as_mut() {
+        let mut ui = self.ui.take();
+
+        if let Some(ui) = ui.as_mut() {
             let (pixels_per_point, input) =
                 ui_input.expect("Gfx::render() with scene, expected Some(ui_input) got None");
             let output = ui.render(
@@ -145,7 +147,7 @@ impl Gfx {
                 &self.device,
                 &self.queue,
                 &view,
-                ui_render,
+                |ui| ui_render(ui, &self),
                 input,
                 pixels_per_point,
                 self.config.width,
@@ -154,6 +156,7 @@ impl Gfx {
 
             full_output = Some(output);
         }
+        self.ui = ui;
 
         self.queue.submit(Some(encoder.finish()));
 

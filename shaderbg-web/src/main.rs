@@ -228,7 +228,7 @@ async fn run() {
                         egui_platform.pixels_per_point(),
                         egui_platform.take_egui_input(&window),
                     )),
-                    |ctx| {
+                    |ctx, _| {
                         egui::Window::new("shaderbg web demo")
                             .movable(false)
                             .resizable(false)

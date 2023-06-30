@@ -201,7 +201,7 @@ impl Background {
                             let time = { self.app_state.get_time().clone() };
                             let size = self.window.inner_size();
                             shadertoy.update(time.time, time.dt as f64, size.width, size.height);
-                            gfx.render(resources.as_mut(), time, shadertoy, None, |_| {});
+                            gfx.render(resources.as_mut(), time, shadertoy, None, |_, _| {});
                         }
                         Event::WindowEvent {
                             event: TaoWindowEvent::Resized(PhysicalSize { width, height }),
