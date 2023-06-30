@@ -156,6 +156,7 @@ impl EventLoopThread {
                     }
                     ThreadEvent::OpenUiWindow(ui_window) => {
                         if self.window.is_none() {
+                            app_state.send(AppEvent::WindowStateChange(true)).unwrap();
                             self.window = Some(Window::build(
                                 event_loop,
                                 app_state.clone(),

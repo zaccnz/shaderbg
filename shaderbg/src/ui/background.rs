@@ -17,7 +17,7 @@ impl Background {
                 .send(if background_enabled {
                     AppEvent::Window(ThreadEvent::StartBackground)
                 } else {
-                    AppEvent::BackgroundClosed
+                    AppEvent::BackgroundClosed(true)
                 })
                 .unwrap()
         }

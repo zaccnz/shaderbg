@@ -79,9 +79,9 @@ impl State {
                 || args.system_startup && config.startup_with == StartupWith::Tray,
         );
 
-        let background_open = args
-            .background
-            .unwrap_or(args.system_startup && config.startup_background);
+        let background_open = args.background.unwrap_or(
+            config.background_enabled || (args.system_startup && config.startup_background),
+        );
 
         State {
             window_open,

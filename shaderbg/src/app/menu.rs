@@ -208,6 +208,24 @@ impl MenuBuilder {
             menu.open_window(Windows::Settings)
         });
         app_menu.add_native_item(MenuItem::Separator);
+
+        if self.app_state.get().background_open {
+            let stop_background_id = app_menu.add_item(MenuButton::new("Stop Background")).id();
+            self.items_window.insert(stop_background_id, |menu, _, _| {
+                menu.app_state
+                    .send(AppEvent::BackgroundClosed(true))
+                    .unwrap();
+            });
+        } else {
+            let start_background_id = app_menu.add_item(MenuButton::new("Start Background")).id();
+            self.items_window.insert(start_background_id, |menu, _, _| {
+                menu.app_state
+                    .send(AppEvent::Window(ThreadEvent::StartBackground))
+                    .unwrap();
+            });
+        }
+
+        app_menu.add_native_item(MenuItem::Separator);
         app_menu.add_native_item(MenuItem::Hide);
         app_menu.add_native_item(MenuItem::HideOthers);
         app_menu.add_native_item(MenuItem::Separator);
@@ -273,6 +291,22 @@ impl MenuBuilder {
         let windows_menu = menu_unwrap_contextmenu(self.build_windows_menu(MenuType::ContextMenu));
         menu.add_submenu("Open Window", true, windows_menu);
 
+        if self.app_state.get().background_open {
+            let stop_background_id = menu.add_item(MenuButton::new("Stop Background")).id();
+            self.items_tray.insert(stop_background_id, |menu, _, _| {
+                menu.app_state
+                    .send(AppEvent::BackgroundClosed(true))
+                    .unwrap();
+            });
+        } else {
+            let stop_background_id = menu.add_item(MenuButton::new("Start Background")).id();
+            self.items_tray.insert(stop_background_id, |menu, _, _| {
+                menu.app_state
+                    .send(AppEvent::Window(ThreadEvent::StartBackground))
+                    .unwrap();
+            });
+        }
+
         menu.add_native_item(MenuItem::Separator);
 
         menu = menu_unwrap_contextmenu(self.add_scene_menu(Menu::ContextMenu(menu)));
@@ -284,9 +318,6 @@ impl MenuBuilder {
         menu.add_submenu("Recent Scene", true, recent_scenes_menu);
 
         menu.add_native_item(MenuItem::Separator);
-
-        let stop_background_id = menu.add_item(MenuButton::new("Stop Background")).id();
-        self.items_tray.insert(stop_background_id, |_, _, _| {});
         let quit_id = menu.add_item(MenuButton::new("Quit")).id();
         self.items_tray.insert(quit_id, |menu, _, _| {
             menu.app_state

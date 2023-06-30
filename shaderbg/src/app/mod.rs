@@ -43,7 +43,7 @@ pub enum AppEvent {
     TrayStateChange(bool),
     BackgroundCreated(Background),
     BackgroundEvent(Event<'static, ThreadEvent>),
-    BackgroundClosed,
+    BackgroundClosed(bool),
     SceneSettingsSaved,
     SettingUpdated(String, SettingValue),
     ConfigUpdated(Box<[ConfigUpdate]>),
@@ -135,7 +135,15 @@ pub fn start_main(
                         background.run(rx);
                     }));
 
-                    state.write().unwrap().background_open = true;
+                    {
+                        let mut state = state.write().unwrap();
+                        state.background_open = true;
+                        state.config.background_enabled = true;
+                        if let Err(error) = state.config.save() {
+                            eprintln!("Error saving config {:?}", error);
+                        }
+                    }
+                    proxy.send_event(ThreadEvent::RebuildMenus).unwrap();
                     timer_tx.send(TimerMessage::BackgroundChange(true)).unwrap();
                 }
                 AppEvent::BackgroundEvent(event) => {
@@ -144,7 +152,7 @@ pub fn start_main(
                         background_channel = Some(channel);
                     }
                 }
-                AppEvent::BackgroundClosed => {
+                AppEvent::BackgroundClosed(manual) => {
                     proxy.send_event(ThreadEvent::StopBackground).unwrap();
                     let channel = background_channel.take();
                     if let Some(handle) = background_handle.take() {
@@ -156,7 +164,17 @@ pub fn start_main(
                         handle.join().unwrap();
                     }
 
-                    state.write().unwrap().background_open = false;
+                    {
+                        let mut state = state.write().unwrap();
+                        state.background_open = false;
+                        if manual {
+                            state.config.background_enabled = false;
+                            if let Err(error) = state.config.save() {
+                                eprintln!("Error saving config {:?}", error);
+                            }
+                        }
+                    }
+                    proxy.send_event(ThreadEvent::RebuildMenus).unwrap();
                     timer_tx
                         .send(TimerMessage::BackgroundChange(false))
                         .unwrap();

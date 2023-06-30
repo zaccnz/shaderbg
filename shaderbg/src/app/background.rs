@@ -201,7 +201,9 @@ impl Background {
                             event: event::WindowEvent::CloseRequested,
                             ..
                         } => {
-                            self.app_state.send(AppEvent::BackgroundClosed).unwrap();
+                            self.app_state
+                                .send(AppEvent::BackgroundClosed(false))
+                                .unwrap();
                             break;
                         }
                         Event::MainEventsCleared => self.window.request_redraw(),
@@ -257,7 +259,9 @@ impl Background {
                         };
                     }
                     BackgroundEvent::Stop => {
-                        self.app_state.send(AppEvent::BackgroundClosed).unwrap();
+                        self.app_state
+                            .send(AppEvent::BackgroundClosed(true))
+                            .unwrap();
                         break;
                     }
                 },

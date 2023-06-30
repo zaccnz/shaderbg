@@ -79,6 +79,7 @@ pub struct Config {
     pub theme: UiTheme,
     pub tray_config: TrayConfig,
     pub launch_on_startup: bool,
+    pub background_enabled: bool,
     pub recent_scenes: VecDeque<RecentScene>,
 }
 
@@ -93,6 +94,7 @@ impl Default for Config {
             startup_background: true,
             tray_config: TrayConfig::CloseTo,
             launch_on_startup: false,
+            background_enabled: false,
             recent_scenes: VecDeque::new(),
         }
     }
