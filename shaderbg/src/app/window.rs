@@ -3,14 +3,14 @@
  */
 use tao::{
     dpi::{LogicalSize, PhysicalSize},
-    event::{Event, WindowEvent as TaoWindowEvent},
+    event::{Event, WindowEvent},
     event_loop::EventLoopWindowTarget,
     keyboard::KeyCode,
     window::{Theme, Window as TaoWindow, WindowBuilder, WindowId},
 };
 
 use crate::{
-    app::{AppEvent, AppState, MenuBuilder, WindowEvent},
+    app::{AppEvent, AppState, MenuBuilder, ThreadEvent},
     io::{TrayConfig, UiTheme},
     ui::AppUi,
 };
@@ -40,7 +40,7 @@ pub struct Window {
 
 impl Window {
     pub fn build(
-        event_loop: &EventLoopWindowTarget<WindowEvent>,
+        event_loop: &EventLoopWindowTarget<ThreadEvent>,
         app_state: AppState,
         menu_builder: &mut MenuBuilder,
     ) -> Window {
@@ -118,14 +118,14 @@ impl Window {
         self.window.id()
     }
 
-    pub fn handle(&mut self, event: Event<WindowEvent>) -> bool {
+    pub fn handle(&mut self, event: Event<ThreadEvent>) -> bool {
         if let Some(ui) = self.gfx.ui.as_ref() {
             self.app_ui.handle_event(&event, &ui.context);
         }
 
         match event {
             Event::WindowEvent {
-                event: TaoWindowEvent::CloseRequested,
+                event: WindowEvent::CloseRequested,
                 ..
             } => {
                 let open_tray = {
@@ -134,13 +134,13 @@ impl Window {
                 };
                 if open_tray {
                     self.app_state
-                        .send(AppEvent::Window(WindowEvent::StartTray))
+                        .send(AppEvent::Window(ThreadEvent::StartTray))
                         .unwrap();
                 }
                 return false;
             }
             Event::WindowEvent {
-                event: TaoWindowEvent::Resized(PhysicalSize { width, height }),
+                event: WindowEvent::Resized(PhysicalSize { width, height }),
                 ..
             } => {
                 self.gfx.resized(width, height);
@@ -150,7 +150,7 @@ impl Window {
             }
             Event::WindowEvent {
                 event:
-                    TaoWindowEvent::ScaleFactorChanged {
+                    WindowEvent::ScaleFactorChanged {
                         new_inner_size: PhysicalSize { width, height },
                         ..
                     },
@@ -163,7 +163,7 @@ impl Window {
             }
             Event::WindowEvent {
                 event:
-                    TaoWindowEvent::KeyboardInput {
+                    WindowEvent::KeyboardInput {
                         event:
                             tao::event::KeyEvent {
                                 physical_key: KeyCode::Escape,
@@ -176,7 +176,7 @@ impl Window {
                 return false;
             }
             Event::WindowEvent {
-                event: TaoWindowEvent::ThemeChanged(theme),
+                event: WindowEvent::ThemeChanged(theme),
                 ..
             } => {
                 if self.app_state.get().config.theme == UiTheme::System {
@@ -300,7 +300,7 @@ impl Window {
         self.gfx.ui.as_ref().unwrap().context().set_visuals(visuals);
     }
 
-    pub fn will_close(&self, event_loop: &EventLoopWindowTarget<WindowEvent>) {
+    pub fn will_close(&self, event_loop: &EventLoopWindowTarget<ThreadEvent>) {
         #[cfg(target_os = "macos")]
         {
             use tao::platform::macos::{ActivationPolicy, EventLoopWindowTargetExtMacOS};

@@ -9,7 +9,7 @@ use tao::{
     menu::{ContextMenu, MenuBar, MenuId, MenuItem, MenuItemAttributes as MenuButton, MenuType},
 };
 
-use super::{AppEvent, AppState, WindowEvent, Windows};
+use super::{AppEvent, AppState, ThreadEvent, Windows};
 
 enum Menu {
     MenuBar(MenuBar),
@@ -74,7 +74,7 @@ impl MenuBuilder {
 
     fn open_window(&self, window: Windows) {
         self.app_state
-            .send(AppEvent::Window(WindowEvent::OpenUiWindow(window)))
+            .send(AppEvent::Window(ThreadEvent::OpenUiWindow(window)))
             .unwrap();
     }
 
@@ -266,7 +266,7 @@ impl MenuBuilder {
         let open_id = menu.add_item(MenuButton::new("Open")).id();
         self.items_tray.insert(open_id, |menu, _, _| {
             menu.app_state
-                .send(AppEvent::Window(WindowEvent::StartWindow))
+                .send(AppEvent::Window(ThreadEvent::StartWindow))
                 .unwrap();
         });
 
@@ -290,14 +290,14 @@ impl MenuBuilder {
         let quit_id = menu.add_item(MenuButton::new("Quit")).id();
         self.items_tray.insert(quit_id, |menu, _, _| {
             menu.app_state
-                .send(AppEvent::Window(WindowEvent::Quit))
+                .send(AppEvent::Window(ThreadEvent::Quit))
                 .unwrap();
         });
 
         menu
     }
 
-    pub fn handle_event(&self, event: Event<WindowEvent>) {
+    pub fn handle_event(&self, event: Event<ThreadEvent>) {
         let handler = match event {
             Event::MenuEvent {
                 menu_id,

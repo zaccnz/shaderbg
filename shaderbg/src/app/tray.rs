@@ -10,7 +10,7 @@ use tao::{
 #[cfg(target_os = "linux")]
 use tao::platform::linux::SystemTrayBuilderExtLinux;
 
-use crate::app::{MenuBuilder, WindowEvent};
+use crate::app::{MenuBuilder, ThreadEvent};
 
 pub struct Tray {
     system_tray: Option<SystemTray>,
@@ -18,7 +18,7 @@ pub struct Tray {
 
 impl Tray {
     pub fn build(
-        event_loop: &EventLoopWindowTarget<WindowEvent>,
+        event_loop: &EventLoopWindowTarget<ThreadEvent>,
         menu_builder: &mut MenuBuilder,
     ) -> Tray {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/icon.png");

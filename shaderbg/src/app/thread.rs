@@ -13,7 +13,7 @@ use crate::{
 use shaderbg_render::scene::io::setting::SettingValue;
 
 #[derive(Debug)]
-pub enum WindowEvent {
+pub enum ThreadEvent {
     StartWindow,
     StartTray,
     StopTray,
@@ -27,23 +27,23 @@ pub enum WindowEvent {
     Quit,
 }
 
-enum WindowEventTarget {
+enum ThreadEventTarget {
     None,
     Window,
     Background,
 }
 
-pub struct WindowThread {
+pub struct EventLoopThread {
     window: Option<Window>,
     tray: Option<Tray>,
 }
 
-impl WindowThread {
-    pub fn build() -> (WindowThread, EventLoop<WindowEvent>) {
-        let event_loop = EventLoop::<WindowEvent>::with_user_event();
+impl EventLoopThread {
+    pub fn build() -> (EventLoopThread, EventLoop<ThreadEvent>) {
+        let event_loop = EventLoop::<ThreadEvent>::with_user_event();
 
         (
-            WindowThread {
+            EventLoopThread {
                 window: None,
                 tray: None,
             },
@@ -53,8 +53,8 @@ impl WindowThread {
 
     fn handle_window_event(
         &mut self,
-        event: Event<WindowEvent>,
-        event_loop: &EventLoopWindowTarget<WindowEvent>,
+        event: Event<ThreadEvent>,
+        event_loop: &EventLoopWindowTarget<ThreadEvent>,
         app_state: &AppState,
     ) {
         let open = if let Some(window) = self.window.as_mut() {
@@ -72,7 +72,7 @@ impl WindowThread {
 
     pub fn run(
         mut self,
-        event_loop: EventLoop<WindowEvent>,
+        event_loop: EventLoop<ThreadEvent>,
         app_state: AppState,
         handle: std::thread::JoinHandle<()>,
     ) {
@@ -104,8 +104,8 @@ impl WindowThread {
                     app_state.send(AppEvent::EventLoopQuit).unwrap();
                     handle.take().unwrap().join().unwrap();
                 }
-                Event::UserEvent(window_event) => match window_event {
-                    WindowEvent::StartWindow => {
+                Event::UserEvent(event) => match event {
+                    ThreadEvent::StartWindow => {
                         if self.window.is_some() {
                             eprintln!("Cannot open window - already open");
                         } else {
@@ -118,7 +118,7 @@ impl WindowThread {
 
                         app_state.send(AppEvent::WindowStateChange(true)).unwrap();
                     }
-                    WindowEvent::StartTray => {
+                    ThreadEvent::StartTray => {
                         if self.tray.is_some() {
                             eprintln!("Cannot start tray - already started");
                         } else {
@@ -126,11 +126,11 @@ impl WindowThread {
                             app_state.send(AppEvent::TrayStateChange(true)).unwrap();
                         }
                     }
-                    WindowEvent::StopTray => {
+                    ThreadEvent::StopTray => {
                         self.tray.take();
                         app_state.send(AppEvent::TrayStateChange(false)).unwrap();
                     }
-                    WindowEvent::StartBackground => {
+                    ThreadEvent::StartBackground => {
                         let background = Background::new(
                             event_loop,
                             app_state.clone_for(AppEventSender::Background),
@@ -142,19 +142,19 @@ impl WindowThread {
                             .send(AppEvent::BackgroundCreated(background))
                             .unwrap();
                     }
-                    WindowEvent::StopBackground => {
+                    ThreadEvent::StopBackground => {
                         background_window_id.take();
                     }
-                    WindowEvent::Quit => {
+                    ThreadEvent::Quit => {
                         *control_flow = ControlFlow::Exit;
                     }
-                    WindowEvent::SettingUpdated(key, value) => {
+                    ThreadEvent::SettingUpdated(key, value) => {
                         if let Some(mut window) = self.window.take() {
                             window.update_setting(key, value);
                             self.window = Some(window);
                         }
                     }
-                    WindowEvent::OpenUiWindow(ui_window) => {
+                    ThreadEvent::OpenUiWindow(ui_window) => {
                         if self.window.is_none() {
                             self.window = Some(Window::build(
                                 event_loop,
@@ -167,7 +167,7 @@ impl WindowThread {
                             window.open_ui_window(ui_window);
                         }
                     }
-                    WindowEvent::RebuildMenus => {
+                    ThreadEvent::RebuildMenus => {
                         if let Some(window) = self.window.as_mut() {
                             window.rebuild_menus(&mut menu_builder);
                         }
@@ -175,37 +175,37 @@ impl WindowThread {
                             tray.rebuild_menus(&mut menu_builder);
                         }
                     }
-                    WindowEvent::SceneChanged => {
+                    ThreadEvent::SceneChanged => {
                         if let Some(window) = self.window.as_mut() {
                             window.scene_changed();
                         }
                     }
-                    WindowEvent::UpdateTheme(theme) => {
+                    ThreadEvent::UpdateTheme(theme) => {
                         if let Some(window) = self.window.as_mut() {
                             window.update_theme(theme);
                         }
                     }
                 },
                 Event::WindowEvent { window_id, .. } => {
-                    let mut target = WindowEventTarget::None;
+                    let mut target = ThreadEventTarget::None;
 
                     if let Some(win) = &self.window {
                         if window_id == win.get_window_id() {
-                            target = WindowEventTarget::Window;
+                            target = ThreadEventTarget::Window;
                         }
                     }
 
                     if let Some(id) = background_window_id {
                         if window_id == id {
-                            target = WindowEventTarget::Background;
+                            target = ThreadEventTarget::Background;
                         }
                     }
 
                     match target {
-                        WindowEventTarget::Window => {
+                        ThreadEventTarget::Window => {
                             self.handle_window_event(event, event_loop, &app_state);
                         }
-                        WindowEventTarget::Background => {
+                        ThreadEventTarget::Background => {
                             if let Some(event) = event.to_static() {
                                 app_state.send(AppEvent::BackgroundEvent(event)).unwrap();
                             }

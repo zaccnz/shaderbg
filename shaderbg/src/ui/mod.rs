@@ -2,12 +2,12 @@ mod settings;
 pub use settings::*;
 
 use tao::{
-    event::{Event, WindowEvent as TaoWindowEvent},
+    event::{Event, WindowEvent},
     window::{Theme, Window},
 };
 
 use crate::{
-    app::{AppEvent, AppState, WindowEvent, Windows},
+    app::{AppEvent, AppState, ThreadEvent, Windows},
     egui_tao,
     io::UiTheme,
 };
@@ -54,10 +54,10 @@ impl AppUi {
         }
     }
 
-    pub fn handle_event(&mut self, event: &Event<WindowEvent>, context: &egui::Context) {
+    pub fn handle_event(&mut self, event: &Event<ThreadEvent>, context: &egui::Context) {
         if let Event::WindowEvent { event, .. } = event {
             match event {
-                TaoWindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+                WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                     self.egui_platform
                         .set_pixels_per_point(*scale_factor as f32);
                 }

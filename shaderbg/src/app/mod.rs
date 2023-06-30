@@ -38,11 +38,11 @@ pub enum AppEvent {
     EventLoopQuit,
     ShouldClose,
     Update(f64),
-    Window(WindowEvent),
+    Window(ThreadEvent),
     WindowStateChange(bool),
     TrayStateChange(bool),
     BackgroundCreated(Background),
-    BackgroundEvent(Event<'static, WindowEvent>),
+    BackgroundEvent(Event<'static, ThreadEvent>),
     BackgroundClosed,
     SceneSettingsSaved,
     SettingUpdated(String, SettingValue),
@@ -62,7 +62,7 @@ pub type AppMessage = (AppEvent, AppEventSender);
 pub fn start_main(
     args: Args,
     config: Config,
-    proxy: EventLoopProxy<WindowEvent>,
+    proxy: EventLoopProxy<ThreadEvent>,
 ) -> (AppState, std::thread::JoinHandle<()>) {
     let (tx, rx) = mpsc::channel::<AppMessage>();
 
@@ -94,7 +94,7 @@ pub fn start_main(
             match event {
                 AppEvent::Window(event) => {
                     let close_tray = match &event {
-                        WindowEvent::StartWindow | WindowEvent::OpenUiWindow(_) => {
+                        ThreadEvent::StartWindow | ThreadEvent::OpenUiWindow(_) => {
                             let state = state.read().unwrap();
                             state.config.tray_config != TrayConfig::Enabled && state.tray_open
                         }
@@ -103,11 +103,11 @@ pub fn start_main(
                     proxy.send_event(event).unwrap();
 
                     if close_tray {
-                        proxy.send_event(WindowEvent::StopTray).unwrap();
+                        proxy.send_event(ThreadEvent::StopTray).unwrap();
                     }
                 }
                 AppEvent::ShouldClose => {
-                    proxy.send_event(WindowEvent::Quit).unwrap();
+                    proxy.send_event(ThreadEvent::Quit).unwrap();
                     timer_tx.send(TimerMessage::Quit).ok();
                     if let Some(handle) = timer_handle.take() {
                         handle.join().unwrap();
@@ -145,7 +145,7 @@ pub fn start_main(
                     }
                 }
                 AppEvent::BackgroundClosed => {
-                    proxy.send_event(WindowEvent::StopBackground).unwrap();
+                    proxy.send_event(ThreadEvent::StopBackground).unwrap();
                     background_channel.take();
                     if let Some(handle) = background_handle.take() {
                         handle.join().unwrap();
@@ -171,13 +171,13 @@ pub fn start_main(
                         (state.window_open, state.tray_open, state.background_open)
                     };
                     if window_open {
-                        proxy.send_event(WindowEvent::StartWindow).unwrap();
+                        proxy.send_event(ThreadEvent::StartWindow).unwrap();
                     }
                     if tray_open {
-                        proxy.send_event(WindowEvent::StartTray).unwrap();
+                        proxy.send_event(ThreadEvent::StartTray).unwrap();
                     }
                     if background_open {
-                        proxy.send_event(WindowEvent::StartBackground).unwrap();
+                        proxy.send_event(ThreadEvent::StartBackground).unwrap();
                     }
                 }
                 AppEvent::EventLoopQuit => {
@@ -207,7 +207,7 @@ pub fn start_main(
                         }
                     }
                     proxy
-                        .send_event(WindowEvent::SettingUpdated(key.clone(), setting.clone()))
+                        .send_event(ThreadEvent::SettingUpdated(key.clone(), setting.clone()))
                         .unwrap();
 
                     if let Some(background) = background_channel.as_ref() {
@@ -230,8 +230,8 @@ pub fn start_main(
                     };
 
                     if changed {
-                        proxy.send_event(WindowEvent::RebuildMenus).unwrap();
-                        proxy.send_event(WindowEvent::SceneChanged).unwrap();
+                        proxy.send_event(ThreadEvent::RebuildMenus).unwrap();
+                        proxy.send_event(ThreadEvent::SceneChanged).unwrap();
 
                         if let Some(background) = background_channel.as_ref() {
                             background.send(BackgroundEvent::SceneChanged).unwrap();
@@ -243,7 +243,7 @@ pub fn start_main(
                         for update in updates.into_vec() {
                             match &update {
                                 ConfigUpdate::Theme(theme) => proxy
-                                    .send_event(WindowEvent::UpdateTheme(theme.clone()))
+                                    .send_event(ThreadEvent::UpdateTheme(theme.clone()))
                                     .unwrap(),
                                 _ => {}
                             }

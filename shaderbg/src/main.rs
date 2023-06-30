@@ -14,10 +14,6 @@ mod ui;
 fn main() {
     env_logger::init();
 
-    //let scene_path = "scenes/shadertoy-ltcGDl";
-    //let scene_path = "scenes/shadertoy-mdBSRt";
-    //let scene_path = "scenes/waves";
-
     let args = io::Args::parse();
 
     let config = match io::Config::load() {
@@ -33,7 +29,7 @@ fn main() {
     // it is? -> tell 'window' to open and quit this process
     // https://gist.github.com/andelf/8668088 could be used for IPC
 
-    let (win_thread, event_loop) = app::WindowThread::build();
+    let (win_thread, event_loop) = app::EventLoopThread::build();
 
     let (app_state, handle) = app::start_main(args, config, event_loop.create_proxy());
 

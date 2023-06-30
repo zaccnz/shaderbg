@@ -2,12 +2,12 @@ use core::fmt::Debug;
 use std::sync::mpsc;
 use tao::{
     dpi::PhysicalSize,
-    event::{self, Event, WindowEvent as TaoWindowEvent},
+    event::{self, Event, WindowEvent},
     event_loop::EventLoopWindowTarget,
     window::{Window, WindowBuilder},
 };
 
-use crate::app::{AppEvent, AppState, WindowEvent};
+use crate::app::{AppEvent, AppState, ThreadEvent};
 use shaderbg_render::{
     gfx::{buffer::ShaderToy, Gfx, GfxContext},
     scene::{io::setting::SettingValue, Resources},
@@ -15,7 +15,7 @@ use shaderbg_render::{
 
 #[derive(Debug)]
 pub enum BackgroundEvent {
-    TaoEvent(Event<'static, WindowEvent>),
+    TaoEvent(Event<'static, ThreadEvent>),
     SettingUpdated(String, SettingValue),
     SceneChanged,
 }
@@ -113,7 +113,7 @@ fn swizzle_constrainframerect_toscreen() {
 }
 
 impl Background {
-    pub fn new(event_loop: &EventLoopWindowTarget<WindowEvent>, app_state: AppState) -> Background {
+    pub fn new(event_loop: &EventLoopWindowTarget<ThreadEvent>, app_state: AppState) -> Background {
         let mut inner_size = PhysicalSize::new(1024, 576);
         if let Some(monitor) = event_loop.primary_monitor() {
             inner_size = monitor.size();
@@ -204,7 +204,7 @@ impl Background {
                             gfx.render(resources.as_mut(), time, shadertoy, None, |_, _| {});
                         }
                         Event::WindowEvent {
-                            event: TaoWindowEvent::Resized(PhysicalSize { width, height }),
+                            event: WindowEvent::Resized(PhysicalSize { width, height }),
                             ..
                         } => {
                             gfx.resized(width, height);
@@ -214,7 +214,7 @@ impl Background {
                         }
                         Event::WindowEvent {
                             event:
-                                TaoWindowEvent::ScaleFactorChanged {
+                                WindowEvent::ScaleFactorChanged {
                                     new_inner_size: PhysicalSize { width, height },
                                     ..
                                 },

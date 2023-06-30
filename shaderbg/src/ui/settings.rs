@@ -1,7 +1,7 @@
 use egui::{Ui, WidgetText};
 
 use crate::{
-    app::{AppEvent, AppState, WindowEvent},
+    app::{AppEvent, AppState, ThreadEvent},
     io::{ConfigUpdate, StartupWith, TrayConfig, UiTheme},
 };
 
@@ -114,12 +114,12 @@ impl Settings {
             match self.tray_config {
                 TrayConfig::Enabled => {
                     self.app_state
-                        .send(AppEvent::Window(WindowEvent::StartTray))
+                        .send(AppEvent::Window(ThreadEvent::StartTray))
                         .unwrap();
                 }
                 TrayConfig::Disabled | TrayConfig::CloseTo => {
                     self.app_state
-                        .send(AppEvent::Window(WindowEvent::StopTray))
+                        .send(AppEvent::Window(ThreadEvent::StopTray))
                         .unwrap();
                 }
             }
