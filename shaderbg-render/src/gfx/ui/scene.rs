@@ -109,7 +109,7 @@ impl Scene {
                 SceneUiElement::SettingGroup(settings) => {
                     egui::Grid::new(format!("settings_group_{}", group_count)).show(ui, |ui| {
                         for key in settings {
-                            if let Some(setting) = self.setting_descriptors.get(&key) {
+                            if let Some(setting) = self.setting_descriptors.get(key) {
                                 let change = match setting {
                                     SettingDescriptor::Colour3 { label, .. } => {
                                         let value = {

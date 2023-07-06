@@ -108,6 +108,7 @@ pub enum ResourceError {
     },
 }
 
+#[allow(clippy::upper_case_acronyms)]
 enum ShaderEntrypointType {
     COMPUTE,
     VERTEX,
@@ -198,7 +199,7 @@ impl Resources {
                     let size = if let Some(size) = size {
                         *size
                     } else if let Some(vertices) = vertices {
-                        if vertices.len() == 0 {
+                        if vertices.is_empty() {
                             return Err(ResourceError::InvalidResource {
                                 id: id.clone(),
                                 reason: "Vertices must not be empty".to_string(),
@@ -239,6 +240,7 @@ impl Resources {
                         let length = vertices.len();
                         let size = vertices[0].len();
 
+                        #[allow(clippy::needless_range_loop)]
                         for i in 0..length {
                             for j in 0..size {
                                 let bytes = bytemuck::bytes_of(&vertices[i][j]);
@@ -316,10 +318,11 @@ impl Resources {
                     stage,
                     ..
                 } => {
+                    #[warn(clippy::expect_fun_call)]
                     let shader_source = scene
                         .files
                         .get(id)
-                        .expect(format!("Shader source for {} was not loaded", id).as_str());
+                        .unwrap_or_else(|| panic!("Shader source for {} was not loaded", id));
 
                     let shader_source_string = match std::str::from_utf8(shader_source.as_slice()) {
                         Ok(string) => string,
@@ -373,7 +376,7 @@ impl Resources {
                         .collect::<Result<Vec<usize>, ResourceError>>()?
                         .iter()
                         .max()
-                        .map(|v| *v);
+                        .copied();
 
                     let align_size = if let Some(align_size) = align_size {
                         align_size
@@ -390,9 +393,7 @@ impl Resources {
                         if let Some(setting) = scene.settings.get(value) {
                             let index = content.len();
 
-                            for _ in 0..align_size {
-                                content.push(0);
-                            }
+                            content.resize(index + align_size, 0);
 
                             setting.write(&mut content.as_mut_slice()[index..]);
 
@@ -430,7 +431,7 @@ impl Resources {
                     let shader_source = scene
                         .files
                         .get(id)
-                        .expect(format!("Shader source for {} was not loaded", id).as_str());
+                        .unwrap_or_else(|| panic!("Shader source for {} was not loaded", id));
 
                     let shader_source_string = match std::str::from_utf8(shader_source.as_slice()) {
                         Ok(string) => string,
@@ -587,29 +588,28 @@ impl Resources {
             };
 
             for (idx, binding) in bindings.iter().enumerate() {
-                let bind_type = if self.cameras.contains_key(binding) {
-                    BufferBindingType::Uniform
-                } else if self.uniforms.contains_key(binding) {
-                    BufferBindingType::Uniform
-                } else if let Some(buf) = self.buffers.get(binding) {
-                    if let Some(storage) = buf.storage.as_ref() {
-                        BufferBindingType::Storage {
-                            read_only: storage.storage_type == BufferStorageType::Read,
+                let bind_type =
+                    if self.cameras.contains_key(binding) || self.uniforms.contains_key(binding) {
+                        BufferBindingType::Uniform
+                    } else if let Some(buf) = self.buffers.get(binding) {
+                        if let Some(storage) = buf.storage.as_ref() {
+                            BufferBindingType::Storage {
+                                read_only: storage.storage_type == BufferStorageType::Read,
+                            }
+                        } else {
+                            return Err(ResourceError::InvalidResource {
+                                id: binding.clone(),
+                                reason: "Attempted to bind buffer, but it is not a storage buffer"
+                                    .to_string(),
+                            });
                         }
                     } else {
-                        return Err(ResourceError::InvalidResource {
+                        return Err(ResourceError::IncorrectResource {
                             id: binding.clone(),
-                            reason: "Attempted to bind buffer, but it is not a storage buffer"
-                                .to_string(),
+                            expected: "Bindable resource".to_string(),
+                            actual: "Not bindable".to_string(),
                         });
-                    }
-                } else {
-                    return Err(ResourceError::IncorrectResource {
-                        id: binding.clone(),
-                        expected: "Bindable resource".to_string(),
-                        actual: "Not bindable".to_string(),
-                    });
-                };
+                    };
 
                 bind_group_layout_entries.push(BindGroupLayoutEntry {
                     binding: idx as u32,
@@ -687,13 +687,13 @@ impl Resources {
         let (shader, entry_point) = Resources::get_shader_and_entrypoint(
             &pipeline.shader,
             ShaderEntrypointType::COMPUTE,
-            &shaders,
+            shaders,
         )?;
 
         let compute_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
             label: label.as_deref(),
             layout: Some(&pipeline_layout),
-            module: &shader,
+            module: shader,
             entry_point: entry_point.deref(),
         });
 
@@ -750,14 +750,14 @@ impl Resources {
         let (shader, vertex_entry) = Resources::get_shader_and_entrypoint(
             &pipeline.shader_vertex,
             ShaderEntrypointType::VERTEX,
-            &shaders,
+            shaders,
         )?;
 
         let fragment_module_and_entry = if let Some(shader) = pipeline.shader_fragment.as_ref() {
             let (module, entry_point) = Resources::get_shader_and_entrypoint(
                 shader,
                 ShaderEntrypointType::FRAGMENT,
-                &shaders,
+                shaders,
             )?;
 
             Some((module, entry_point))
@@ -784,7 +784,7 @@ impl Resources {
             layout: Some(&pipeline_layout),
 
             vertex: VertexState {
-                module: &shader,
+                module: shader,
                 entry_point: vertex_entry.deref(),
                 buffers: buffers.as_slice(),
             },
@@ -792,7 +792,7 @@ impl Resources {
                 let (module, entry) = fragment_module_and_entry.as_ref().unwrap();
 
                 Some(FragmentState {
-                    module: module,
+                    module,
                     entry_point: entry.as_str(),
                     targets: &targets,
                 })
@@ -871,11 +871,11 @@ impl Resources {
         let (shader, vertex_entry) = Resources::get_shader_and_entrypoint(
             &"shadertoy_vertex_shader".to_string(),
             ShaderEntrypointType::VERTEX,
-            &shaders,
+            shaders,
         )?;
 
         let (fragment_module, fragment_entry_point) =
-            Resources::get_shader_and_entrypoint(source, ShaderEntrypointType::FRAGMENT, &shaders)?;
+            Resources::get_shader_and_entrypoint(source, ShaderEntrypointType::FRAGMENT, shaders)?;
 
         let targets = [Some(ColorTargetState {
             format,
@@ -917,7 +917,7 @@ impl Resources {
             layout: Some(&pipeline_layout),
 
             vertex: VertexState {
-                module: &shader,
+                module: shader,
                 entry_point: vertex_entry.deref(),
                 buffers: &[VertexBufferLayout {
                     array_stride: 16,
@@ -1067,7 +1067,7 @@ impl Resources {
                     cpass.dispatch_workgroups(workgroups[0], workgroups[1], workgroups[2]);
 
                     drop(cpass);
-                    if let Some(_) = label {
+                    if label.is_some() {
                         encoder.pop_debug_group();
                     }
                 }
@@ -1086,7 +1086,7 @@ impl Resources {
                     let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                         label: Some("Scene Pass"),
                         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                            view: &view,
+                            view,
                             resolve_target: None,
                             ops: wgpu::Operations {
                                 load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
@@ -1115,7 +1115,7 @@ impl Resources {
 
                     drop(rpass);
 
-                    if let Some(_) = label {
+                    if label.is_some() {
                         encoder.pop_debug_group();
                     }
                 }
@@ -1131,7 +1131,7 @@ impl Resources {
                     let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                         label: Some("Scene Pass"),
                         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                            view: &view,
+                            view,
                             resolve_target: None,
                             ops: wgpu::Operations {
                                 load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
@@ -1153,7 +1153,7 @@ impl Resources {
 
                     drop(rpass);
 
-                    if let Some(_) = label {
+                    if label.is_some() {
                         encoder.pop_debug_group();
                     }
                 }

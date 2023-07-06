@@ -123,7 +123,7 @@ impl Config {
 
         match std::fs::write(CONFIG_FILE, config_string) {
             Ok(()) => Ok(()),
-            Err(e) => return Err(e.to_string()),
+            Err(e) => Err(e.to_string()),
         }
     }
 

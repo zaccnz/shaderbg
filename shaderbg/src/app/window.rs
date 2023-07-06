@@ -54,7 +54,7 @@ impl Window {
             .with_title("shaderbg")
             .with_inner_size(LogicalSize::new(1024, 576))
             .with_menu(menu_builder.build_window_menu())
-            .build(&event_loop)
+            .build(event_loop)
             .unwrap();
 
         #[cfg(target_os = "macos")]
@@ -198,7 +198,7 @@ impl Window {
             Event::MainEventsCleared => self.window.request_redraw(),
             Event::RedrawEventsCleared => {
                 let mut changes = Vec::new();
-                let time = { self.app_state.get_time().clone() };
+                let time = { *self.app_state.get_time() };
 
                 let size = self.window.inner_size();
 
@@ -233,18 +233,15 @@ impl Window {
                         .unwrap();
                 }
 
-                match scene_ui_result {
-                    SceneUiResult::Saved => {
-                        self.app_state.send(AppEvent::SceneSettingsSaved).unwrap();
-                    }
-                    _ => (),
+                if let SceneUiResult::Saved = scene_ui_result {
+                    self.app_state.send(AppEvent::SceneSettingsSaved).unwrap();
                 }
 
                 if let Some(full_output) = full_output {
                     self.app_ui.handle_full_output(
                         full_output.platform_output,
                         &self.window,
-                        &self.gfx.ui.as_ref().unwrap().context(),
+                        self.gfx.ui.as_ref().unwrap().context(),
                     );
                 }
             }
@@ -300,6 +297,7 @@ impl Window {
         self.gfx.ui.as_ref().unwrap().context().set_visuals(visuals);
     }
 
+    #[allow(unused)]
     pub fn will_close(&self, event_loop: &EventLoopWindowTarget<ThreadEvent>) {
         #[cfg(target_os = "macos")]
         {

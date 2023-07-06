@@ -395,7 +395,10 @@ impl State {
                 repaint: false,
                 consumed: false,
             },
-            WindowEvent::DecorationsClick => todo!(),
+            WindowEvent::DecorationsClick => EventResponse {
+                repaint: false,
+                consumed: false,
+            },
             /* 
             WindowEvent::TouchpadMagnify { delta, .. } => {
                 // Positive delta values indicate magnification (zooming in).

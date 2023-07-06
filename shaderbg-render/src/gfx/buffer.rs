@@ -11,22 +11,18 @@ pub struct Time {
 
 impl Time {
     pub fn new() -> Self {
-        /*
-        unsafe {
-            STARTED_MS = std::time::SystemTime::now();
-        }*/
-
         Time { time: 0, dt: 0.0 }
     }
 
     pub fn update_time(&mut self, now: u32, dt: f64) {
-        self.time = now; /*unsafe {
-                             std::time::SystemTime::now()
-                                 .duration_since(STARTED_MS)
-                                 .unwrap()
-                                 .as_millis() as u32
-                         };*/
+        self.time = now;
         self.dt = dt as f32;
+    }
+}
+
+impl Default for Time {
+    fn default() -> Self {
+        Time::new()
     }
 }
 
@@ -62,6 +58,12 @@ impl ShaderToy {
     }
 }
 
+impl Default for ShaderToy {
+    fn default() -> Self {
+        ShaderToy::new()
+    }
+}
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct CameraMatrix {
@@ -82,5 +84,11 @@ impl CameraMatrix {
     pub fn update_view_proj(&mut self, camera: &Camera) {
         self.proj = camera.build_projection_matrix().into();
         self.view = camera.build_view_matrix().into();
+    }
+}
+
+impl Default for CameraMatrix {
+    fn default() -> Self {
+        CameraMatrix::new()
     }
 }

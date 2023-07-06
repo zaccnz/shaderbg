@@ -29,17 +29,17 @@ impl Tray {
         let tray_menu = menu_builder.build_tray_menu();
 
         #[cfg(target_os = "linux")]
-        let system_tray = SystemTrayBuilder::new(icon.clone(), Some(tray_menu))
+        let system_tray = SystemTrayBuilder::new(icon, Some(tray_menu))
             .with_id(main_tray_id)
             .with_temp_icon_dir(std::path::Path::new("/tmp/shaderbg"))
-            .build(&event_loop)
+            .build(event_loop)
             .unwrap();
 
         #[cfg(any(target_os = "windows", target_os = "macos"))]
-        let system_tray = SystemTrayBuilder::new(icon.clone(), Some(tray_menu))
+        let system_tray = SystemTrayBuilder::new(icon, Some(tray_menu))
             .with_id(main_tray_id)
             .with_tooltip("shaderbg")
-            .build(&event_loop)
+            .build(event_loop)
             .unwrap();
 
         let system_tray = Some(system_tray);

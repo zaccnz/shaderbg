@@ -61,19 +61,10 @@ impl SettingValue {
     }
 
     pub fn write(&self, buffer: &mut [u8]) {
-        match self {
-            SettingValue::Float(value) => {
-                let bytes = bytemuck::bytes_of(value);
-                for i in 0..self.size() {
-                    buffer[i] = bytes[i];
-                }
-            }
-            SettingValue::Colour3(value) => {
-                let bytes = bytemuck::bytes_of(value);
-                for i in 0..self.size() {
-                    buffer[i] = bytes[i];
-                }
-            }
-        }
+        let bytes = match self {
+            SettingValue::Float(value) => bytemuck::bytes_of(value),
+            SettingValue::Colour3(value) => bytemuck::bytes_of(value),
+        };
+        buffer[..self.size()].copy_from_slice(&bytes[..self.size()]);
     }
 }

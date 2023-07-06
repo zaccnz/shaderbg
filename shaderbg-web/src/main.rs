@@ -290,7 +290,7 @@ async fn run() {
                         egui_platform.handle_platform_output(
                             &window,
                             &ui.context,
-                            full_output.platform_output.clone(),
+                            full_output.platform_output,
                         );
                     }
                 }

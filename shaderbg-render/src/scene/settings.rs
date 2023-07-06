@@ -88,7 +88,7 @@ impl Settings {
 
         match fs::write(path, settings_string) {
             Ok(()) => Ok(()),
-            Err(e) => return Err(e.to_string()),
+            Err(e) => Err(e.to_string()),
         }
     }
 
@@ -104,16 +104,6 @@ impl Settings {
         self.data.iter()
     }
 
-    pub fn clone(&self) -> Settings {
-        let mut new_data = HashMap::new();
-        new_data.extend(
-            self.data
-                .iter()
-                .map(|(key, value)| (key.clone(), value.clone())),
-        );
-        Settings { data: new_data }
-    }
-
     pub fn reset(&mut self, descriptor: &Descriptor) -> Result<(), SettingParseError> {
         for (key, setting) in descriptor.settings.iter() {
             let setting = SettingValue::from_descriptor(setting)?;
@@ -121,5 +111,17 @@ impl Settings {
         }
 
         Ok(())
+    }
+}
+
+impl Clone for Settings {
+    fn clone(&self) -> Settings {
+        let mut new_data = HashMap::new();
+        new_data.extend(
+            self.data
+                .iter()
+                .map(|(key, value)| (key.clone(), value.clone())),
+        );
+        Settings { data: new_data }
     }
 }

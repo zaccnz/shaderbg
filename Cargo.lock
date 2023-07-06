@@ -2590,6 +2590,7 @@ dependencies = [
  "tao",
  "toml",
  "webbrowser",
+ "windows 0.48.0",
  "zip",
 ]
 

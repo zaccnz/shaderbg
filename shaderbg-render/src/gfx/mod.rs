@@ -32,7 +32,7 @@ impl GfxContext {
         // https://stackoverflow.com/questions/56132584/draw-on-windows-10-wallpaper-in-c
         // (should work, as long as we can make a HasRawWindowHandle + HasRawDisplayHandle object!)
         // https://docs.rs/wgpu/latest/wgpu/struct.Instance.html#method.create_surface
-        let surface = unsafe { instance.create_surface(&window) }.unwrap();
+        let surface = unsafe { instance.create_surface(window) }.unwrap();
 
         GfxContext { instance, surface }
     }
@@ -77,8 +77,8 @@ impl Gfx {
         let surface_desc = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format,
-            width: width,
-            height: height,
+            width,
+            height,
             present_mode: wgpu::PresentMode::Fifo,
             alpha_mode: wgpu::CompositeAlphaMode::Auto,
             view_formats: vec![format],
@@ -147,7 +147,7 @@ impl Gfx {
                 &self.device,
                 &self.queue,
                 &view,
-                |ui| ui_render(ui, &self),
+                |ui| ui_render(ui, self),
                 input,
                 pixels_per_point,
                 self.config.width,

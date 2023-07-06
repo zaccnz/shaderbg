@@ -66,7 +66,7 @@ pub fn start_main(
 ) -> (AppState, std::thread::JoinHandle<()>) {
     let (tx, rx) = mpsc::channel::<AppMessage>();
 
-    let app_tx = tx.clone();
+    let app_tx = tx;
     let state = Arc::new(RwLock::new(State::new(args, config)));
     let time = Arc::new(RwLock::new(Time::new()));
     let app_state = AppState::build(state.clone(), time.clone(), app_tx, AppEventSender::Window);
@@ -264,11 +264,10 @@ pub fn start_main(
                 AppEvent::ConfigUpdated(updates) => {
                     if let Ok(mut state) = state.write() {
                         for update in updates.into_vec() {
-                            match &update {
-                                ConfigUpdate::Theme(theme) => proxy
+                            if let ConfigUpdate::Theme(theme) = &update {
+                                proxy
                                     .send_event(ThreadEvent::UpdateTheme(theme.clone()))
-                                    .unwrap(),
-                                _ => {}
+                                    .unwrap();
                             }
                             state.config.update(update);
                         }

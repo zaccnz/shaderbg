@@ -87,7 +87,7 @@ impl MenuBuilder {
         if recent_scenes.len() == 0 {
             menu_add(
                 &mut menu,
-                MenuButton::new("No recent scenes").with_enabled(false),
+                MenuButton::new("&No recent scenes").with_enabled(false),
             );
         }
 
@@ -97,7 +97,7 @@ impl MenuBuilder {
                     &mut menu,
                     MenuButton::new(
                         format!(
-                            "{} ({})",
+                            "&{} ({})",
                             scene.descriptor.meta.name, scene.descriptor.meta.version
                         )
                         .as_str(),
@@ -115,7 +115,7 @@ impl MenuBuilder {
                     _ => panic!("Unknown menu type {:?}", menu_type),
                 };
 
-                data.insert(id.clone(), recent_scene.scene.clone());
+                data.insert(id, recent_scene.scene.clone());
 
                 items.insert(id, |menu, menu_type, id| {
                     let data = match menu_type {
@@ -146,24 +146,24 @@ impl MenuBuilder {
             _ => todo!(),
         };
 
-        let scene_settings_id = menu_add(&mut menu, MenuButton::new("Scene Settings"));
+        let scene_settings_id = menu_add(&mut menu, MenuButton::new("&Scene Settings"));
         items.insert(scene_settings_id, |menu, _, _| {
             menu.open_window(Windows::SceneSettings)
         });
         menu_add_native(&mut menu, MenuItem::Separator);
-        let scene_browser_id = menu_add(&mut menu, MenuButton::new("Scene Browser"));
+        let scene_browser_id = menu_add(&mut menu, MenuButton::new("&Scene Browser"));
         items.insert(scene_browser_id, |menu, _, _| {
             menu.open_window(Windows::SceneBrowser)
         });
-        let configure_background_id = menu_add(&mut menu, MenuButton::new("Configure Background"));
+        let configure_background_id = menu_add(&mut menu, MenuButton::new("&Configure Background"));
         items.insert(configure_background_id, |menu, _, _| {
             menu.open_window(Windows::ConfigureBackground)
         });
-        let settigns_id = menu_add(&mut menu, MenuButton::new("Settings"));
+        let settigns_id = menu_add(&mut menu, MenuButton::new("&Settings"));
         items.insert(settigns_id, |menu, _, _| {
             menu.open_window(Windows::Settings);
         });
-        let performance_id = menu_add(&mut menu, MenuButton::new("Performance"));
+        let performance_id = menu_add(&mut menu, MenuButton::new("&Performance"));
         items.insert(performance_id, |menu, _, _| {
             menu.open_window(Windows::Performance)
         });
@@ -176,18 +176,18 @@ impl MenuBuilder {
             menu_add(
                 &mut menu,
                 MenuButton::new(
-                    format!("Current Scene: {}", scene.descriptor.meta.name.clone()).as_str(),
+                    format!("&Current Scene: {}", scene.descriptor.meta.name.clone()).as_str(),
                 )
                 .with_enabled(false),
             );
-            let pause_id = menu_add(&mut menu, MenuButton::new("Pause"));
+            let pause_id = menu_add(&mut menu, MenuButton::new("&Pause"));
             self.items_window.insert(pause_id, |_, _, _| {});
-            let reload_id = menu_add(&mut menu, MenuButton::new("Reload"));
+            let reload_id = menu_add(&mut menu, MenuButton::new("&Reload"));
             self.items_window.insert(reload_id, |_, _, _| {});
         } else {
             menu_add(
                 &mut menu,
-                MenuButton::new(format!("No Scene Loaded",).as_str()).with_enabled(false),
+                MenuButton::new("&No Scene Loaded").with_enabled(false),
             );
         }
 
@@ -203,21 +203,21 @@ impl MenuBuilder {
                 ..Default::default()
             },
         ));
-        let settings_id = app_menu.add_item(MenuButton::new("Settings")).id();
+        let settings_id = app_menu.add_item(MenuButton::new("&Settings")).id();
         self.items_window.insert(settings_id, |menu, _, _| {
             menu.open_window(Windows::Settings)
         });
         app_menu.add_native_item(MenuItem::Separator);
 
         if self.app_state.get().background_open {
-            let stop_background_id = app_menu.add_item(MenuButton::new("Stop Background")).id();
+            let stop_background_id = app_menu.add_item(MenuButton::new("&Stop Background")).id();
             self.items_window.insert(stop_background_id, |menu, _, _| {
                 menu.app_state
                     .send(AppEvent::BackgroundClosed(true))
                     .unwrap();
             });
         } else {
-            let start_background_id = app_menu.add_item(MenuButton::new("Start Background")).id();
+            let start_background_id = app_menu.add_item(MenuButton::new("&Start Background")).id();
             self.items_window.insert(start_background_id, |menu, _, _| {
                 menu.app_state
                     .send(AppEvent::Window(ThreadEvent::StartBackground))
@@ -242,7 +242,7 @@ impl MenuBuilder {
         scene_menu.add_native_item(MenuItem::Separator);
         // possible quick settings for changing how the background is rendered
         let recent_scenes = menu_unwrap_menubar(self.build_recent_menu(MenuType::MenuBar));
-        scene_menu.add_submenu("Recent", true, recent_scenes);
+        scene_menu.add_submenu("&Recent", true, recent_scenes);
 
         scene_menu
     }
@@ -250,7 +250,7 @@ impl MenuBuilder {
     fn build_window_help_menu(&mut self) -> MenuBar {
         let mut help_menu = MenuBar::new();
         let github_id = help_menu
-            .add_item(MenuButton::new("GitHub Documentation..."))
+            .add_item(MenuButton::new("&GitHub Documentation..."))
             .id();
         self.items_window.insert(github_id, |_, _, _| {
             if let Err(err) = webbrowser::open("https://github.com/zaccnz/shaderbg") {

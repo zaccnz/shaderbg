@@ -31,6 +31,7 @@ impl Ui {
         &mut self.renderer
     }
 
+    #[allow(clippy::too_many_arguments)] // todo: cleanup args
     pub fn render<F: FnOnce(&egui::Context)>(
         &mut self,
         encoder: &mut CommandEncoder,
@@ -63,7 +64,7 @@ impl Ui {
             let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: Some("egui render pass"),
                 color_attachments: &[Some(RenderPassColorAttachment {
-                    view: &view,
+                    view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Load,

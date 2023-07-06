@@ -50,6 +50,7 @@ built to be cross-platform (Windows, macOS, Linux) using Rust.
   - [chrono](https://crates.io/crates/chrono) = "0.4.24"
   - [webbrowser](https://crates.io/crates/webbrowser) = "0.8.10"
   - [zip](https://crates.io/crates/zip) = "0.6"
+  - **Windows only:** [windows](https://crates.io/crates/windows) = "0.48"
   - **macOS only:** [cocoa](https://crates.io/crates/cocoa) = "0.24", [objc](https://crates.io/crates/objc) = "0.2.2"
 - **web**
   - [winit](https://crates.io/crates/winit) = "0.28.6"

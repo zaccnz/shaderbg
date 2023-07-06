@@ -87,7 +87,7 @@ impl State {
             window_open,
             tray_open,
             background_open,
-            config: config,
+            config,
             scenes,
             current_scene,
         }

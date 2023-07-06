@@ -64,12 +64,9 @@ impl AppUi {
 
     pub fn handle_event(&mut self, event: &Event<ThreadEvent>, context: &egui::Context) {
         if let Event::WindowEvent { event, .. } = event {
-            match event {
-                WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
-                    self.egui_platform
-                        .set_pixels_per_point(*scale_factor as f32);
-                }
-                _ => (),
+            if let WindowEvent::ScaleFactorChanged { scale_factor, .. } = event {
+                self.egui_platform
+                    .set_pixels_per_point(*scale_factor as f32);
             }
             let _ = self.egui_platform.on_event(context, event);
         }
@@ -82,7 +79,7 @@ impl AppUi {
         context: &egui::Context,
     ) {
         self.egui_platform
-            .handle_platform_output(&window, &context, full_output.clone());
+            .handle_platform_output(window, context, full_output);
     }
 
     pub fn get_input(&mut self, window: &Window) -> (f32, egui::RawInput) {

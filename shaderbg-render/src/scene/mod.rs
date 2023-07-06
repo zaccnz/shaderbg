@@ -82,7 +82,7 @@ impl Scene {
         }
 
         let settings_path = settings_dir.join(format!("{}.toml", name));
-        let settings = if let Some(settings) = Settings::load(settings_path.clone(), &descriptor) {
+        let settings = if let Some(settings) = Settings::load(settings_path, &descriptor) {
             settings
         } else {
             match Settings::new(&descriptor) {

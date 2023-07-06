@@ -60,73 +60,73 @@ impl Settings {
     }
 
     fn save(&mut self) -> bool {
-        let config = &self.app_state.get().config;
         let mut changes = Vec::new();
+        {
+            let config = &self.app_state.get().config;
 
-        if self.scene_dir != config.scene_dir.to_str().unwrap() {
-            let path_buf = std::path::PathBuf::from(self.scene_dir.clone());
-            if !path_buf.exists() {
-                self.error = Some(SettingsError::SceneDir(None));
-                return false;
-            }
-            if path_buf.is_file() {
-                self.error = Some(SettingsError::SceneDir(Some(
-                    "is already a file".to_string(),
-                )));
-                return false;
-            }
-            changes.push(ConfigUpdate::SceneDir(path_buf));
-        }
-
-        if self.settings_dir != config.settings_dir.to_str().unwrap() {
-            let path_buf = std::path::PathBuf::from(self.settings_dir.clone());
-            if !path_buf.exists() {
-                self.error = Some(SettingsError::SettingsDir(None));
-                return false;
-            }
-            if path_buf.is_file() {
-                self.error = Some(SettingsError::SettingsDir(Some(
-                    "is already a file".to_string(),
-                )));
-                return false;
-            }
-            changes.push(ConfigUpdate::SettingsDir(path_buf));
-        }
-
-        if self.launch_on_startup != config.launch_on_startup {
-            // try install
-            changes.push(ConfigUpdate::LaunchOnStartup(self.launch_on_startup));
-        }
-
-        if self.startup_with != config.startup_with {
-            changes.push(ConfigUpdate::StartupWith(self.startup_with.clone()));
-        }
-
-        if self.startup_background != config.startup_background {
-            changes.push(ConfigUpdate::StartupBackground(self.startup_background));
-        }
-
-        if self.ui_theme != config.theme {
-            changes.push(ConfigUpdate::Theme(self.ui_theme.clone()));
-        }
-
-        if self.tray_config != config.tray_config {
-            match self.tray_config {
-                TrayConfig::Enabled => {
-                    self.app_state
-                        .send(AppEvent::Window(ThreadEvent::StartTray))
-                        .unwrap();
+            if self.scene_dir != config.scene_dir.to_str().unwrap() {
+                let path_buf = std::path::PathBuf::from(self.scene_dir.clone());
+                if !path_buf.exists() {
+                    self.error = Some(SettingsError::SceneDir(None));
+                    return false;
                 }
-                TrayConfig::Disabled | TrayConfig::CloseTo => {
-                    self.app_state
-                        .send(AppEvent::Window(ThreadEvent::StopTray))
-                        .unwrap();
+                if path_buf.is_file() {
+                    self.error = Some(SettingsError::SceneDir(Some(
+                        "is already a file".to_string(),
+                    )));
+                    return false;
                 }
+                changes.push(ConfigUpdate::SceneDir(path_buf));
             }
-            changes.push(ConfigUpdate::TrayConfig(self.tray_config.clone()));
-        }
 
-        drop(config);
+            if self.settings_dir != config.settings_dir.to_str().unwrap() {
+                let path_buf = std::path::PathBuf::from(self.settings_dir.clone());
+                if !path_buf.exists() {
+                    self.error = Some(SettingsError::SettingsDir(None));
+                    return false;
+                }
+                if path_buf.is_file() {
+                    self.error = Some(SettingsError::SettingsDir(Some(
+                        "is already a file".to_string(),
+                    )));
+                    return false;
+                }
+                changes.push(ConfigUpdate::SettingsDir(path_buf));
+            }
+
+            if self.launch_on_startup != config.launch_on_startup {
+                // try install
+                changes.push(ConfigUpdate::LaunchOnStartup(self.launch_on_startup));
+            }
+
+            if self.startup_with != config.startup_with {
+                changes.push(ConfigUpdate::StartupWith(self.startup_with.clone()));
+            }
+
+            if self.startup_background != config.startup_background {
+                changes.push(ConfigUpdate::StartupBackground(self.startup_background));
+            }
+
+            if self.ui_theme != config.theme {
+                changes.push(ConfigUpdate::Theme(self.ui_theme.clone()));
+            }
+
+            if self.tray_config != config.tray_config {
+                match self.tray_config {
+                    TrayConfig::Enabled => {
+                        self.app_state
+                            .send(AppEvent::Window(ThreadEvent::StartTray))
+                            .unwrap();
+                    }
+                    TrayConfig::Disabled | TrayConfig::CloseTo => {
+                        self.app_state
+                            .send(AppEvent::Window(ThreadEvent::StopTray))
+                            .unwrap();
+                    }
+                }
+                changes.push(ConfigUpdate::TrayConfig(self.tray_config.clone()));
+            }
+        }
 
         self.app_state
             .send(AppEvent::ConfigUpdated(changes.into_boxed_slice()))
@@ -253,10 +253,8 @@ impl Settings {
                 open = false;
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("Save").clicked() {
-                    if self.save() {
-                        open = false;
-                    }
+                if ui.button("Save").clicked() && self.save() {
+                    open = false;
                 }
             });
         });

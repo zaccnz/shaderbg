@@ -81,7 +81,7 @@ impl EventLoopThread {
         let mut menu_builder = MenuBuilder::new(app_state.clone());
 
         event_loop.run(move |event, event_loop, control_flow| {
-            *control_flow = ControlFlow::Wait;
+            //*control_flow = ControlFlow::Wait;
             match event {
                 Event::NewEvents(StartCause::Init) => {
                     // THREAD START

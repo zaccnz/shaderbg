@@ -27,7 +27,7 @@ impl Browser {
         let mut previews = HashMap::new();
 
         for (name, scene) in scenes.iter() {
-            previews.insert(name.clone(), ScenePreview::new(&scene, &device, &name));
+            previews.insert(name.clone(), ScenePreview::new(scene, device, name));
         }
 
         let preview_post_process = ScenePreviewPostProcess::new(device);
@@ -109,10 +109,8 @@ impl Browser {
                     ui.label(meta.description.clone());
                     if Some(index) == current_scene {
                         ui.label(RichText::new("Selected").strong());
-                    } else {
-                        if ui.button("Select").clicked() {
-                            selected = Some(index)
-                        }
+                    } else if ui.button("Select").clicked() {
+                        selected = Some(index);
                     }
                 })
             });
@@ -167,6 +165,7 @@ impl ScenePreview {
         }
     }
 
+    #[allow(clippy::too_many_arguments)] // todo: cleanup args, probably take Gfx
     pub fn render(
         &mut self,
         renderer: &mut egui_wgpu::Renderer,
